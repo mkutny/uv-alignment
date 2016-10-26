@@ -239,13 +239,10 @@ UVmap = BoyFotoPlane.data.uv_layers.active
 for v in BoyFotoPlane.data.loops :
     uv_vec = UVmap.data[v.index].uv # uv vector
 
-    uv_x = uv_vec[0] # x coord
-    uv_y = uv_vec[1] # y coord
+    uv_tr = matrixT * Vector((uv_vec[0], uv_vec[1], 1)) # transformed vector
 
-    uv_tr = matrixT * Vector(uv_x, uv_y, 1) # transformed vector
-
-    uv[0] = uv_tr[0]
-    uv[1] = uv_tr[1]
+    uv_vec[0] = uv_tr[0]
+    uv_vec[1] = uv_tr[1]
 
 #######################################################################################
 ################################## 5.1 ################################################
