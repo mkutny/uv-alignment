@@ -242,8 +242,7 @@ for v in BoyFotoPlane.data.loops :
     uv_x = uv_vec[0] # x coord
     uv_y = uv_vec[1] # y coord
 
-    uv_aug = Vector(uv_plane_x, uv_plane_y, 1) # uv augmented vector
-    uv_tr = matrixT * uv_aug # transformed vector
+    uv_tr = matrixT * Vector(uv_x, uv_y, 1) # transformed vector
 
     uv[0] = uv_tr[0]
     uv[1] = uv_tr[1]
