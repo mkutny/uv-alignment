@@ -218,13 +218,13 @@ matrixT[1][0] = diff_eyes_dist*sin(eyes_angle_dif)
 matrixT[1][1] = diff_eyes_dist*cos(eyes_angle_dif)
 matrixT[1][2] = diff_z'''
 
-matrixT[0][0] = 1.3215652476201316
-matrixT[0][1] = -0.14416606659672285
-matrixT[0][2] = -0.19056776666193095
+matrixT[0][0] = 1.320802769303709
+matrixT[0][1] = -0.15099206295327702
+matrixT[0][2] = -0.17697950213490118
 
-matrixT[1][0] = 0.14416606659672285
-matrixT[1][1] = 1.3215652476201316
-matrixT[1][2] = 0.0011849421378985652
+matrixT[1][0] = 0.15099206295327702
+matrixT[1][1] = 1.320802769303709
+matrixT[1][2] = -0.0895266793498636
 
 matrixT[2][0] = 0
 matrixT[2][1] = 0
