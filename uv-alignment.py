@@ -13,8 +13,6 @@ from mathutils import Vector, Matrix
 from mathutils.geometry import intersect_ray_tri
 from bpy_extras.view3d_utils import region_2d_to_vector_3d
 from bpy_extras.view3d_utils import location_3d_to_region_2d
-from math import cos, sin
-import numpy as np
 
 # Briefly, our approach is the following:
 # 1. Find projection of mesh's coordinates on photo-plane
@@ -178,67 +176,64 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 #######################################################################################
 ### FIND AFFINE TRANSFORMATION (ROTATION, SCALE, TRANSLATION)
 
-# Now we have (all in UV-space):
-# - landmarks' coordinates on plane
-# - UV map of the plane (source map)
-# - landmarks' coordinates on photo
-# We are looking for a target UV map which would align photo with landmarks of 3D eyes on plane
+# Now we have (in UV space):
+# - 3d-mesh landmarks' coordinates projected on plane (plane_landmarks)
+# - landmarks' coordinates on photo (photo_landmarks)
 #
-# If we know affine transformation between plane's and photo's landmarks we could
-# compute transformation matrix 'T'.
+# We want to find affine transofmation matrix 'T', so that
+# photo_landmarks = T * plane_landmarks (Equation 1)
 #
-# TODO 2 lines below is not clear for me
-# Given transformation matrix 'T' and plane's UV map 'plane_uv' one would find photo's
-# UV map 'photo_uv' simply by dot product:  photo_uv = T * plane_uv
-#
-# Translation matrix 'T' has a form of:
+# Affine translation matrix 'T' has a form of:
 # | s*cos(r) -s*sin(r)  tx |
 # | s*sin(r)  s*cos(r)  ty |
 # | 0         0         1  |
-# where 's' is uniform scale, 'r' is rotation angel, '(tx, ty)' is a translation
+# where 's' is uniform scale, 'r' is rotation angel, '(tx, ty)' is a translation.
 #
 # Given for 4 unknowns 's', 'r', 'tx', 'ty' we could solve for 'T' using 2 pairs of known
-# correspondencies (e.g. two eyes).
+# correspondencies between plane and photo landmarks (e.g. two eyes).
 #
 # Let a = s*cos(r), b = s*sin(r)
 # (x1, y1), (x2, y2) - eyes' coordinates on the plane
-# (xp1, yp1), (xp2, yp2) - corresponding eyes' coordinates on the photo
+# (x1_prime, y1_prime), (x2_prime, y2_prime) - corresponding eyes' coordinates on the photo
 #
-# Then
-# | x1 -y1 1 0 |   | a  |   | xp1 |
-# | y1  x1 0 1 | * | b  | = | yp1 |
-# | x2 -y2 1 0 |   | tx |   | xp2 |
-# | y2  x2 0 1 |   | ty |   | yp2 |
+# Solving Equation 1 for 'a', 'b', 'tx', 'ty' we get:
+# | x1 -y1 1 0 |   | a  |   | x1_prime |
+# | y1  x1 0 1 | * | b  | = | y1_prime |
+# | x2 -y2 1 0 |   | tx |   | x2_prime |
+# | y2  x2 0 1 |   | ty |   | y2_prime |
 #
-# or 'source_matrix' * 'transform_vector' = 'prime_vector'
-#
-# Then transform_vector = inv(source_matrix) * prime_vector
 
-# source x and y's
-src_mat = Matrix.Translation ((1,2,3))
+# Set plane's X's and Y's
+src_mat = Matrix([eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0],
+                 [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1],
+                 [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0],
+                 [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1])
 
-src_mat [0] = [eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0]
-src_mat [1] = [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1]
-src_mat [2] = [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0]
-src_mat [3] = [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1]
+# Set photo's X's and Y's
+prime_vec = Vector ((eyeR_photo_norm_x,
+                     eyeR_photo_norm_z,
+                     eyeL_photo_norm_x,
+                     eyeL_photo_norm_z))
 
-# target x and y's
-prime_vec = Vector ((eyeR_photo_norm_x, eyeR_photo_norm_z, eyeL_photo_norm_x, eyeL_photo_norm_z))
+# compute transform vector (a, b, tx, ty)
+t_vec = src_mat.inverse() * prime_vec
 
-# transform vector (a, b, tx, ty)
-t_vec = np.dot(np.linalg.inv(src_mat), prime_vec)
-
-t_mat = Matrix.Translation ((1,2,3)).to_3x3 ()
-
-t_mat [0] = [t_vec[0], -t_vec[1], t_vec[2]]
-t_mat [1] = [t_vec[1], t_vec[0], t_vec[3]]
-t_mat [2] = [0, 0, 1]
+# combine affinity transformation matrix from 'a', 'b', 'tx', 'ty'
+t_mat =  Matrix([t_vec[0], -t_vec[1], t_vec[2]],
+                [t_vec[1],  t_vec[0], t_vec[3]],
+                [0,         0,        1])
 
 
 
 #######################################################################################
 ### APPLY AFFINE TRANSFORMATION
 
+# Now we have affine transformation 'T' that for every point on plane locates matching
+# point on photo:
+# photo_point = T * plane_point
+#
+# In order to align photo with plane we just need to apply transformation 'T' to plane's UV map
+# 
 # transforming uv
 uv_map = boy_photo_plane.data.uv_layers.active
 for v in boy_photo_plane.data.loops :
