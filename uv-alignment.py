@@ -148,14 +148,14 @@ print ("Left Eye Plane normalized coordinates = ", eyeL_plane_norm_x, eyeL_plane
 # z looking down.
 # I named vertical axis as z because
 # when I'm using local coordinates of BoyFotoPlane I have axis x and z (y = 0 for all vertices).
-eyeL_photo_x = 471 # x position of the left eye on the photo in pixels
+eyeL_photo_x = 471      # x position of the left eye on the photo in pixels
 eyeL_photo_z = 1024-731 # z position of the left eye on the photo in pixels
 
-eyeR_photo_x = 184 # x position of the right eye on the photo in pixels
+eyeR_photo_x = 184      # x position of the right eye on the photo in pixels
 eyeR_photo_z = 1024-688 # z position of the right eye on the photo in pixels
 
-photo_x_size = 764 # width of the photo in pixels
-photo_z_size = 1024 # height of the photo in pixels
+photo_x_size = 764      # width of the photo in pixels
+photo_z_size = 1024     # height of the photo in pixels
 
 
 #######################################################################################
@@ -180,14 +180,13 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 # - 3d-mesh landmarks' coordinates projected on plane (plane_landmarks)
 # - landmarks' coordinates on photo (photo_landmarks)
 #
-# We want to find affine transofmation matrix 'T', so that
-# photo_landmarks = T * plane_landmarks (Equation 1)
-#
-# Affine translation matrix 'T' has a form of:
+# We want to find rotation 'r', scale 's' and translation 't' parameters, so that:
+# photo_landmarks = T(r, s, t) * plane_landmarks
+
+# where T(r, s, t) is an affine transformation matrix that has a form of:
 # | s*cos(r) -s*sin(r)  tx |
 # | s*sin(r)  s*cos(r)  ty |
 # | 0         0         1  |
-# where 's' is uniform scale, 'r' is rotation angel, '(tx, ty)' is a translation.
 #
 # Given for 4 unknowns 's', 'r', 'tx', 'ty' we could solve for 'T' using 2 pairs of known
 # correspondencies between plane and photo landmarks (e.g. two eyes).
@@ -224,9 +223,8 @@ t_mat =  Matrix([t_vec[0], -t_vec[1], t_vec[2]],
                 [0,         0,        1])
 
 
-
 #######################################################################################
-### APPLY AFFINE TRANSFORMATION
+### APPLY AFFINE TRANSFORMATION TO UV MAP
 
 # Now we have affine transformation 'T' that for every point on plane locates matching
 # point on photo:
