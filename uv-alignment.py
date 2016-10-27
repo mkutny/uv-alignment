@@ -204,10 +204,10 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 #
 
 # Set plane's X's and Y's
-src_mat = Matrix([eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0],
+src_mat = Matrix(([eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0],
                  [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1],
                  [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0],
-                 [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1])
+                 [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1]))
 
 # Set photo's X's and Y's
 prime_vec = Vector ((eyeR_photo_norm_x,
@@ -216,12 +216,12 @@ prime_vec = Vector ((eyeR_photo_norm_x,
                      eyeL_photo_norm_z))
 
 # compute transform vector (a, b, tx, ty)
-t_vec = src_mat.inverse() * prime_vec
+t_vec = src_mat.inverted() * prime_vec
 
 # combine affinity transformation matrix from 'a', 'b', 'tx', 'ty'
-t_mat =  Matrix([t_vec[0], -t_vec[1], t_vec[2]],
-                [t_vec[1],  t_vec[0], t_vec[3]],
-                [0,         0,        1])
+t_mat =  Matrix(([t_vec[0], -t_vec[1], t_vec[2]],
+                 [t_vec[1],  t_vec[0], t_vec[3]],
+                 [0,         0,        1]))
 
 
 
