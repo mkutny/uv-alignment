@@ -1,4 +1,12 @@
-# v.01 we can align two eyes
+# Task: we have a face photo and a rorresponding face 3d-mesh.
+# We want camera to view this face photo morphed (blended) into 3d-mesh of that face.
+#
+# For this task we setup a camera, a 3d-mesh and a photo (on a plane) in between.
+# 
+# The code below aligns photo with 3d-mesh from camera perspective.
+# We use eyes and mouth landmarks for alignment.
+#
+# v.01 we can align two eyes between 
 
 import bpy, bmesh
 from mathutils import Vector, Matrix
@@ -6,37 +14,35 @@ from mathutils.geometry import intersect_ray_tri
 from bpy_extras.view3d_utils import region_2d_to_vector_3d
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 from math import cos, sin
+import numpy as np
 
-# todo
-# 1.1. move timeslider to 336 frame for boy
-# 1.2. converting coordinates of vertices in center of 3D eyes from local to world space
-
-# 2.1. find coordinates of 3D eyes in pixelspace of screen
-# 2.2. find intersections of ray from 3D eyes with BoyFotoPlane (world space)
-# 2.3. converting intersection from world space to local space of BoyFotoPlane where axis X = x, Y = -z
-# 2.4. normalizing intersection and fixing Z axis (we need to do it because Z must look up)
-
-# 3.1. getting coordinates of eyes on photo from FaceGen
-# 3.2. normalize coordinates of eyes on photo
-
-# 4.1. creating matrix of transformation
-# 4.2. transforming uv
-
-#######################################################################################
-################################## 1.2 ################################################
-#######################################################################################
-
-#getting world coordinates of vertex 29478 in the center of left eye
-eyeL3D_wco = bpy.data.objects["BoyMorphed"].matrix_world*bpy.data.objects["BoyMorphed"].data.vertices[29478].co 
-#getting world coordinates of vertex 29783 in the center of right eye
-eyeR3D_wco = bpy.data.objects["BoyMorphed"].matrix_world*bpy.data.objects["BoyMorphed"].data.vertices[29783].co 
-
-
+# Briefly, our approach is the following:
+# 1. Find projection of mesh's coordinates on photo-plane
+#  1.1 Get landmarks' world coordinates of 3d mesh
+#  1.2 Find out corresponding screen coordinates
+#  1.3 Project rays from located screen points back to landmarks
+#  1.4 Find out intersection with our plane
+#  1.5 Convert plane landmarks to UV-space
+# 2. Get photo landmarks coordinates
+#  2.1 Import photo landmarks
+#  2.2 Convert to UV-space
+# 3. Find affine transformation between two corresponding points on plane and photo
+# 4. Transform UV map so the photo would match the plane
 
 
 #######################################################################################
-################################## 2.1 ################################################
+### GETTING WORLD COORDINATES OF 3D MESH LANDMARKS
+
+# getting world coordinates of vertex 29478 (center of left eye of the mesh)
+boy_obj = bpy.data.objects["BoyMorphed"]
+eyeL_3D_world = boy_obj.matrix_world * boy_obj.data.vertices[29478].co
+
+# getting world coordinates of vertex 29783 (center of right eye)
+eyeR_3D_world = boy_obj.matrix_world * boy_obj.data.vertices[29783].co 
+
+
 #######################################################################################
+### FIND OUT CORRESPONDING SCREEN COORDINATES
 
 scene = bpy.context.scene # getting current scene
 
@@ -53,25 +59,30 @@ def view3d_find():
                     return region, rv3d
     return None, None
 
+# TODO what is 'region'?
 region, rv3d = view3d_find()
 
 # looking for position of eyes and mouth in screeen coordinates (in pixels). 0,0 - left bottom corner of 3dview region
-eyeL3D_px = location_3d_to_region_2d(region, rv3d, eyeL3D_wco)
-eyeR3D_px = location_3d_to_region_2d(region, rv3d, eyeR3D_wco)
+eyeL_2D_px = location_3d_to_region_2d(region, rv3d, eyeL_3D_world)
+eyeR_2D_px = location_3d_to_region_2d(region, rv3d, eyeR_3D_world)
+
 
 #######################################################################################
-################################## 2.2 ################################################
-#######################################################################################
+### PROJECT RAYS FROM SCREEN POINTS BACK TO LANDMARKS
 
 # direction from camera origin to left eye
-eyeL_ray_dir = region_2d_to_vector_3d (region, rv3d, eyeL3D_px)
+eyeL_ray_dir = region_2d_to_vector_3d (region, rv3d, eyeL_2D_px)
 # direction from camera origin to right eye
-eyeR_ray_dir = region_2d_to_vector_3d (region, rv3d, eyeR3D_px)
+eyeR_ray_dir = region_2d_to_vector_3d (region, rv3d, eyeR_2D_px)
 
 #looking for camera location because ray looks from camera location
-origin = scene.objects.get('pasted__sc02_sh0010__camera_v002').location
+camera_origin = scene.objects.get('pasted__sc02_sh0010__camera_v002').location
 
-BoyFotoPlane = scene.objects.get('BoyFotoPlane')
+
+#######################################################################################
+### FIND OUT INTERSECTION WITH OUR PLANE
+
+boy_photo_plane = scene.objects.get('BoyFotoPlane')
 
 # looking for the first intersection of line 
 # (line between 2 points: ray_dir and origin)
@@ -98,108 +109,131 @@ def get_intesection (ob, origin, ray_dir):
         scene.update()
     return intersection
 
-interEyeL = get_intesection (BoyFotoPlane, origin, eyeL_ray_dir)
-interEyeR = get_intesection (BoyFotoPlane, origin, eyeR_ray_dir)
-
-#######################################################################################
-################################## 2.3 ################################################
-#######################################################################################
+# get intersection world coordinates
+eyeL_plane_glob = get_intesection (boyFotoPlane, camera_origin, eyeL_ray_dir)
+eyeR_plane_glob = get_intesection (boyFotoPlane, camera_origin, eyeR_ray_dir)
 
 # convert coordinates of intersection from world to FotoPlane's local
 # local coordinates of BoyFotoPlane start in center and have axis X = looking right, Y = 0, Z = looking down
-interEyeL_local = BoyFotoPlane.matrix_world.inverted()*interEyeL
-interEyeR_local = BoyFotoPlane.matrix_world.inverted()*interEyeR
-
-#######################################################################################
-################################## 2.4 ################################################
-#######################################################################################
-
-photoPlaneSize = 4.71391 # half width/height of the BoyFotoPlane in units (because width=height)
-
-# normalizing coordinates of left eye intersection from local to range 0,0-1,1 and inverting Z axis
-interEyeL_co_nx = ((interEyeL_local[0] + photoPlaneSize)/(photoPlaneSize))/2
-interEyeL_co_nz = 1 - ((interEyeL_local[2] + photoPlaneSize)/(photoPlaneSize))/2
-
-# normalizing coordinates of right eye intersection from local to range 0,0-1,1 and inverting Z axis
-interEyeR_co_nx = ((interEyeR_local[0] + photoPlaneSize)/(photoPlaneSize))/2
-interEyeR_co_nz = 1- ((interEyeR_local[2] + photoPlaneSize)/(photoPlaneSize))/2
-
-print ("Right Eye Plane =", interEyeR_co_nx, interEyeR_co_nz)
-print ("Left Eye Plane =", interEyeL_co_nx, interEyeL_co_nz)
-
-
+eyeL_plane_local = boyFotoPlane.matrix_world.inverted() * eyeL_plane_glob
+eyeR_plane_local = boyFotoPlane.matrix_world.inverted() * eyeR_plane_glob
 
 
 #######################################################################################
-################################## 3.1 ################################################
-#######################################################################################
+### CONVERT PLANE LANDMARK COORDINATES TO UV-space
 
+# ToDo - could it be taken from plane properties?
+photo_plane_size = 4.71391 * 2 # width/height of the BoyFotoPlane in units (because width=height)
+
+# convert to uv-coordinates: (0,0) is bottom left, (1,1) is top right
+# normalizing coordinates of left eye intersection from local to range (0,0)-(1,1) and inverting Z axis
+eyeL_plane_norm_x = (eyeL_plane_local[0] + photo_plane_size/2) / photo_plane_size
+eyeL_plane_norm_z = 1 - (eyeL_plane_local[2] + photo_plane_size/2) / photo_plane_size
+
+# normalizing coordinates of right eye intersection from local to range (0,0)-(1,1) and inverting Z axis
+eyeR_plane_norm_x = (eyeR_inter_local[0] + photo_plane_size/2) / photo_plane_size
+eyeR_plane_norm_z = 1 - (eyeR_inter_local[2] + photo_plane_size/2) / photo_plane_size
+
+print ("Right Eye Plane normalized coordinates = ", eyeR_plane_norm_x, eyeR_plane_norm_z)
+print ("Left Eye Plane normalized coordinates = ", eyeL_plane_norm_x, eyeL_plane_norm_z)
+
+
+#######################################################################################
+### GET PHOTO LANDMARK COORDINATES
 # getting coordinates of eyes on photo from FaceGen
 
-# x=0, z=0 are in the center of the photo.
+# x=0, z=0 are in the left top of the photo.
 # z looking down.
 # I named vertical axis as z because
 # when I'm using local coordinates of BoyFotoPlane I have axis x and z (y = 0 for all vertices).
-eyeL_photo_x = 89 # x position of the left eye on the photo in pixels
-eyeL_photo_z = -219 # z position of the left eye on the photo in pixels
+eyeL_photo_x = 471 # x position of the left eye on the photo in pixels
+eyeL_photo_z = 1024-731 # z position of the left eye on the photo in pixels
 
-eyeR_photo_x = -198 # x position of the right eye on the photo in pixels
-eyeR_photo_z = -176 # z position of the right eye on the photo in pixels
+eyeR_photo_x = 184 # x position of the right eye on the photo in pixels
+eyeR_photo_z = 1024-688 # z position of the right eye on the photo in pixels
 
-photo_x = 382 # half width of the photo in pixels
-photo_z = 512 # half height of the photo in pixels
-
-ar = 1.44151 # aspect ratio of BoyFotoPlane
-
-#######################################################################################
-################################## 3.2 ################################################
-#######################################################################################
-
-# normalizing coordinates of left eye on the photo from pixels to 0,0-1,1 and inverting Z axis
-eyeL_foto_co_nx = ((eyeL_photo_x + photo_x)/(photo_x))/2
-eyeL_foto_co_nz = 1 - ((eyeL_photo_z + photo_z)/(photo_z))/2
-
-# normalizing coordinates of right eye on the photo from pixels to 0,0-1,1 and inverting Z axis
-eyeR_foto_co_nx = ((eyeR_photo_x + photo_x)/(photo_x))/2
-eyeR_foto_co_nz = 1 - ((eyeR_photo_z + photo_z)/(photo_z))/2
-
-print ("Right Eye Foto =", eyeR_foto_co_nx, eyeR_foto_co_nz)
-print ("Left Eye Foto =", eyeL_foto_co_nx, eyeL_foto_co_nz)
-
-
+photo_x_size = 764 # half width of the photo in pixels
+photo_z_size = 1024 # half height of the photo in pixels
 
 
 #######################################################################################
-################################## 4.1 ################################################
-#######################################################################################
+### CONVERT PHOTO COORDS TO UV-SPACE
 
-# creating matrix 3x3 in this strange way (because I don't know how to do it in oter way)
-matrixT = Matrix.Translation ((1,2,3)).to_3x3 ()
+# normalizing coordinates of left eye on the photo from pixels to (0,0)-(1,1) and inverting Z axis
+eyeL_photo_norm_x = eyeL_photo_x / photo_x_size
+eyeL_photo_norm_z = 1 - eyeL_photo_z / photo_z_size
 
-# filling matrix with values calculated with help of this https://github.com/axelpale/nudged-py
-matrixT[0][0] = 1.320802769303709
-matrixT[0][1] = -0.15099206295327702
-matrixT[0][2] = -0.17697950213490118
+# normalizing coordinates of right eye on the photo from pixels to (0,0)-(1,1) and inverting Z axis
+eyeR_photo_norm_x = eyeR_photo_x / photo_x_size
+eyeR_photo_norm_z = 1 - eyeR_photo_z / photo_z_size
 
-matrixT[1][0] = 0.15099206295327702
-matrixT[1][1] = 1.320802769303709
-matrixT[1][2] = -0.0895266793498636
+print ("Right Eye Foto normalized coordinates = ", eyeR_photo_norm_x, eyeR_photo_norm_z)
+print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_norm_z)
 
-matrixT[2][0] = 0
-matrixT[2][1] = 0
-matrixT[2][2] = 1
-#print (matrixT)
 
 #######################################################################################
-################################## 4.2 ################################################
+### FIND AFFINE TRANSFORMATION (ROTATION, SCALE, TRANSLATION)
+
+# Now we have (all in UV-space):
+# - landmarks' coordinates on plane
+# - UV map of the plane (source map)
+# - landmarks' coordinates on photo
+# We are looking for a target UV map which would align photo with plane
+#
+# If we know affine transformation between pland and photo landmakrs we could
+# compute transformation matrix 'T'.
+# Given transformation matrix 'T' and plane's UV map 'plane_uv' one would find photo's
+# UV map 'photo_uv' simply by dot product:  photo_uv = T * plane_uv
+#
+# Translation matrix 'T' has a form of:
+# | s*cos(r) -s*sin(r)  tx |
+# | s*sin(r)  s*cos(r)  ty |
+# | 0         0         1  |
+# where 's' is scale, 'r' is rotation angel, '(tx, ty)' is a translation
+#
+# Given for 4 unknowns 's', 'r', 'tx', 'ty' we could solve for 'T' using 2 pairs of known
+# correspondencies (e.g. two eyes).
+#
+# Let a = s*cos(r), b = s*sin(r)
+# (x1, y1), (x2, y2) - eyes' coordinates on the plane
+# (xp1, yp1), (xp2, yp2) - corresponding eyes' coordinates on the photo
+#
+# Then
+# | x1 -y1 1 0 |   | a  |   | xp1 |
+# | y1  x1 0 1 | * | b  | = | yp1 |
+# | x2 -y2 1 0 |   | tx |   | xp2 |
+# | y2  x2 0 1 |   | ty |   | yp2 |
+#
+# or 'source_matrix' * 'transform_vector' = 'prime_vector'
+#
+# Then transform_vector = inv(source_matrix) * prime_vector
+
+# source x and y's
+src_mat = [
+ [eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0],
+ [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1],
+ [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0],
+ [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1]]
+
+# target x and y's
+prime_vec = [eyeR_photo_norm_x, eyeR_photo_norm_z, eyeL_photo_norm_x, eyeL_photo_norm_z]
+
+# transform vector (a, b, tx, ty)
+t_vec = np.dot(np.linalg.inv(src_mat), prime_vec)
+
+t_mat = [[t_vec[0], -t_vec[1], t_vec[2]], [t_vec[1], t_vec[0], t_vec[3]], [[0], [0], [1]]]
+
+
+
 #######################################################################################
+### APPLY AFFINE TRANSFORMATION
 
 # transforming uv
-UVmap = BoyFotoPlane.data.uv_layers.active
-for v in BoyFotoPlane.data.loops :
-    uv_vec = UVmap.data[v.index].uv # uv vector
+uv_map = boy_photo_plane.data.uv_layers.active
+for v in boy_photo_plane.data.loops :
+    uv_vec = uv_map.data[v.index].uv # uv vector
 
-    uv_tr = matrixT * Vector((uv_vec[0], uv_vec[1], 1)) # transformed vector
+    uv_tr = t_mat * Vector((uv_vec[0], uv_vec[1], 1)) # transformed vector
 
     uv_vec[0] = uv_tr[0]
     uv_vec[1] = uv_tr[1]
