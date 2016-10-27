@@ -59,7 +59,8 @@ def view3d_find():
                     return region, rv3d
     return None, None
 
-# TODO what is 'region'?
+# region - part of screen area in Blender; 
+# rv3d - region that has 3D view (we can see our 3D scene through this region)
 region, rv3d = view3d_find()
 
 # looking for position of eyes and mouth in screeen coordinates (in pixels). 0,0 - left bottom corner of 3dview region
@@ -110,19 +111,22 @@ def get_intesection (ob, origin, ray_dir):
     return intersection
 
 # get intersection world coordinates
-eyeL_plane_glob = get_intesection (boyFotoPlane, camera_origin, eyeL_ray_dir)
-eyeR_plane_glob = get_intesection (boyFotoPlane, camera_origin, eyeR_ray_dir)
+eyeL_plane_glob = get_intesection (boy_photo_plane, camera_origin, eyeL_ray_dir)
+eyeR_plane_glob = get_intesection (boy_photo_plane, camera_origin, eyeR_ray_dir)
 
 # convert coordinates of intersection from world to FotoPlane's local
 # local coordinates of BoyFotoPlane start in center and have axis X = looking right, Y = 0, Z = looking down
-eyeL_plane_local = boyFotoPlane.matrix_world.inverted() * eyeL_plane_glob
-eyeR_plane_local = boyFotoPlane.matrix_world.inverted() * eyeR_plane_glob
+eyeL_plane_local = boy_photo_plane.matrix_world.inverted() * eyeL_plane_glob
+eyeR_plane_local = boy_photo_plane.matrix_world.inverted() * eyeR_plane_glob
 
 
 #######################################################################################
 ### CONVERT PLANE LANDMARK COORDINATES TO UV-space
 
 # ToDo - could it be taken from plane properties?
+# Yes, but I know only one way - for certain vertex. 
+# For example boy_photo_plane.data.vertices[0].co.z
+# In other words, I'm looking for vertex local coordinates in some corner of the plane
 photo_plane_size = 4.71391 * 2 # width/height of the BoyFotoPlane in units (because width=height)
 
 # convert to uv-coordinates: (0,0) is bottom left, (1,1) is top right
@@ -131,8 +135,8 @@ eyeL_plane_norm_x = (eyeL_plane_local[0] + photo_plane_size/2) / photo_plane_siz
 eyeL_plane_norm_z = 1 - (eyeL_plane_local[2] + photo_plane_size/2) / photo_plane_size
 
 # normalizing coordinates of right eye intersection from local to range (0,0)-(1,1) and inverting Z axis
-eyeR_plane_norm_x = (eyeR_inter_local[0] + photo_plane_size/2) / photo_plane_size
-eyeR_plane_norm_z = 1 - (eyeR_inter_local[2] + photo_plane_size/2) / photo_plane_size
+eyeR_plane_norm_x = (eyeR_plane_local[0] + photo_plane_size/2) / photo_plane_size
+eyeR_plane_norm_z = 1 - (eyeR_plane_local[2] + photo_plane_size/2) / photo_plane_size
 
 print ("Right Eye Plane normalized coordinates = ", eyeR_plane_norm_x, eyeR_plane_norm_z)
 print ("Left Eye Plane normalized coordinates = ", eyeL_plane_norm_x, eyeL_plane_norm_z)
@@ -152,8 +156,8 @@ eyeL_photo_z = 1024-731 # z position of the left eye on the photo in pixels
 eyeR_photo_x = 184 # x position of the right eye on the photo in pixels
 eyeR_photo_z = 1024-688 # z position of the right eye on the photo in pixels
 
-photo_x_size = 764 # half width of the photo in pixels
-photo_z_size = 1024 # half height of the photo in pixels
+photo_x_size = 764 # width of the photo in pixels
+photo_z_size = 1024 # height of the photo in pixels
 
 
 #######################################################################################
@@ -178,10 +182,12 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 # - landmarks' coordinates on plane
 # - UV map of the plane (source map)
 # - landmarks' coordinates on photo
-# We are looking for a target UV map which would align photo with plane
+# We are looking for a target UV map which would align photo with landmarks of 3D eyes on plane
 #
-# If we know affine transformation between pland and photo landmakrs we could
+# If we know affine transformation between plane's and photo's landmarks we could
 # compute transformation matrix 'T'.
+#
+# TODO 2 lines below is not clear for me
 # Given transformation matrix 'T' and plane's UV map 'plane_uv' one would find photo's
 # UV map 'photo_uv' simply by dot product:  photo_uv = T * plane_uv
 #
@@ -189,7 +195,7 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 # | s*cos(r) -s*sin(r)  tx |
 # | s*sin(r)  s*cos(r)  ty |
 # | 0         0         1  |
-# where 's' is scale, 'r' is rotation angel, '(tx, ty)' is a translation
+# where 's' is uniform scale, 'r' is rotation angel, '(tx, ty)' is a translation
 #
 # Given for 4 unknowns 's', 'r', 'tx', 'ty' we could solve for 'T' using 2 pairs of known
 # correspondencies (e.g. two eyes).
@@ -209,19 +215,24 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 # Then transform_vector = inv(source_matrix) * prime_vector
 
 # source x and y's
-src_mat = [
- [eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0],
- [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1],
- [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0],
- [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1]]
+src_mat = Matrix.Translation ((1,2,3))
+
+src_mat [0] = [eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0]
+src_mat [1] = [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1]
+src_mat [2] = [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0]
+src_mat [3] = [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1]
 
 # target x and y's
-prime_vec = [eyeR_photo_norm_x, eyeR_photo_norm_z, eyeL_photo_norm_x, eyeL_photo_norm_z]
+prime_vec = Vector ((eyeR_photo_norm_x, eyeR_photo_norm_z, eyeL_photo_norm_x, eyeL_photo_norm_z))
 
 # transform vector (a, b, tx, ty)
 t_vec = np.dot(np.linalg.inv(src_mat), prime_vec)
 
-t_mat = [[t_vec[0], -t_vec[1], t_vec[2]], [t_vec[1], t_vec[0], t_vec[3]], [[0], [0], [1]]]
+t_mat = Matrix.Translation ((1,2,3)).to_3x3 ()
+
+t_mat [0] = [t_vec[0], -t_vec[1], t_vec[2]]
+t_mat [1] = [t_vec[1], t_vec[0], t_vec[3]]
+t_mat [2] = [0, 0, 1]
 
 
 
