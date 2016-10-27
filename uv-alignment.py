@@ -180,7 +180,8 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 # - 3d-mesh landmarks' coordinates projected on plane (plane_landmarks)
 # - landmarks' coordinates on photo (photo_landmarks)
 #
-# We want to find rotation 'r', scale 's' and translation 't' parameters, so that:
+# We want to find rotation 'r', scale 's' and translation 't' parameters that bring
+# plane and photo into alignment, e.g.:
 # photo_landmarks = T(r, s, t) * plane_landmarks               (Equation 1)
 #
 # where T(r, s, t) is an affine transformation matrix that has a form of:
@@ -190,8 +191,8 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 #
 # Given 4 unknowns 's', 'r', 'tx', 'ty' we need 4 equations to solve for 'T' and to
 # populate 4 equations we need 4 corresponding parameters. As a pair of correspoinding 
-# landmakrs gives 2 parameters ('x' and 'y' coords) we need only 2 pairs of corresponding
-# landmarks between plane and photo (e.g. two eyes) to compute 'T'.
+# landmakrs gives as much as 2 parameters ('x' and 'y' coords) we need only 2 pairs
+# of corresponding landmarks between plane and photo (e.g. two eyes) to compute 'T'.
 #
 # Let (x1, y1), (x2, y2) be eyes' coordinates on the plane and
 # (x1_prime, y1_prime), (x2_prime, y2_prime) corresponding eyes' coordinates on the photo.
