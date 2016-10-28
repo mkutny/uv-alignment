@@ -1,12 +1,12 @@
-# Task: we have a face photo and a rorresponding face 3d-mesh.
-# We want camera to view this face photo morphed (blended) into 3d-mesh of that face.
+# Task: we have a face photo and a face 3d-mesh reconstructed from it.
 #
-# For this task we setup a camera, a 3d-mesh and a photo (on a plane) in between.
-# 
-# The code below aligns photo with 3d-mesh from camera perspective.
-# We use eyes and mouth landmarks for alignment.
+# We have a task of bringing photo and 3d-mesh in correspondence so that
+# their predefined landmarks are aligned from camera perspective.
 #
-# v.01 we can align two eyes between 
+# For this task we setup a camera, a 3d-mesh and a photo (on a plane)
+# in between camera and mesh.
+#
+# v.01 We rely on left and rigth eyes to be our predefined landmarks
 
 import bpy, bmesh
 from mathutils import Vector, Matrix
@@ -15,13 +15,13 @@ from bpy_extras.view3d_utils import region_2d_to_vector_3d
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 
 # Briefly, our approach is the following:
-# 1. Find projection of mesh's coordinates on photo-plane
+# 1. Find projection of mesh's landmarks on photo-plane
 #  1.1 Get landmarks' world coordinates of 3d mesh
 #  1.2 Find out corresponding screen coordinates
 #  1.3 Project rays from located screen points back to landmarks
 #  1.4 Find out intersection with our plane
 #  1.5 Convert plane landmarks to UV-space
-# 2. Get photo landmarks coordinates
+# 2. Get photo's landmarks' coordinates
 #  2.1 Import photo landmarks
 #  2.2 Convert to UV-space
 # 3. Find affine transformation between two corresponding points on plane and photo
@@ -176,50 +176,50 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 #######################################################################################
 ### FIND AFFINE TRANSFORMATION (ROTATION, SCALE, TRANSLATION)
 
-# Now we have (in UV space):
-# - 3d-mesh landmarks' coordinates projected on plane (plane_landmarks)
-# - landmarks' coordinates on photo (photo_landmarks)
+# We want to find such an affine transformation 'T' that brings photo and plane points
+# in correspondence: photo_points = T * plane_points
 #
-# We want to find rotation 'r', scale 's' and translation 't' parameters that bring
-# plane and photo into alignment, e.g.:
-# photo_landmarks = T(r, s, t) * plane_landmarks               (Equation 1)
+# More precisely 'T' is called Affine Transformation Matrix and is written in a form:
 #
-# where T(r, s, t) is an affine transformation matrix that has a form of:
-# | s*cos(r) -s*sin(r)  tx |
-# | s*sin(r)  s*cos(r)  ty |
-# | 0         0         1  |
+#                | s*cos(r) -s*sin(r)  tx |
+# photo_points = | s*sin(r)  s*cos(r)  ty | * plane_points     (Equation 1)
+#                | 0         0         1  |
 #
-# Given 4 unknowns 's', 'r', 'tx', 'ty' we need 4 equations to solve for 'T' and to
-# populate 4 equations we need 4 corresponding parameters. As a pair of correspoinding 
-# landmakrs gives as much as 2 parameters ('x' and 'y' coords) we need only 2 pairs
-# of corresponding landmarks between plane and photo (e.g. two eyes) to compute 'T'.
+# where 'r' is CCW rotation, 's' is uniform scale and 'tx', 'ty' are translation parameters.
 #
-# Let (x1, y1), (x2, y2) be eyes' coordinates on the plane and
-# (x1_prime, y1_prime), (x2_prime, y2_prime) corresponding eyes' coordinates on the photo.
+# Given 4 unknown parameters 's*cos(r)', 's*sin(r)', 'tx', 'ty' there are 4 equations
+# needed to solve for 'T' and 4 corresponding knowns to populate these equations.
+# Hopefully a pair of correspoinding landmakrs gives us as much as 2 parameters
+# (their 'x' and 'y' coords) therefore we need only 2 pairs of corresponding landmarks
+# between plane and photo (i.e. left and right eyes) to compute 'T'.
+#
+# Let (plane_x1, plane_y1), (plane_x2, plane_y2) be eyes' coordinates on the plane and
+# (photo_x1, photo_y1), (photo_x2, photo_y2) corresponding eyes' coordinates on the photo
+# that we calculated on previous steps.
 #
 # Solving Equation 1 for 's*cos(r)', 's*sin(r)', 'tx', 'ty' we get:
-# | s*cos(r)  |   | x1 -y1 1 0 |-1   | x1_prime |
-# | s*sin(r)  | = | y1  x1 0 1 |   * | y1_prime |
-# | tx        |   | x2 -y2 1 0 |     | x2_prime |
-# | ty        |   | y2  x2 0 1 |     | y2_prime |
+# | s*cos(r) |   | plane_x1  -plane_y1  1  0 |-1   | photo_x1 |
+# | s*sin(r) | = | plane_y1   plane_x1  0  1 |   * | photo_y1 |
+# | tx       |   | plane_x2  -plane_y2  1  0 |     | photo_x2 |
+# | ty       |   | plane_y2   plane_x2  0  1 |     | photo_y2 |
 #
 
 # Populate matrix with plane's X's and Y's
-src_mat = Matrix(([eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0],
-                 [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1],
-                 [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0],
-                 [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1]))
+plane_mat = Matrix(([eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0],
+                    [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1],
+                    [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0],
+                    [eyeL_plane_norm_z,  eyeL_plane_norm_x, 0, 1]))
 
 # Set photo's X's and Y's
-prime_vec = Vector ((eyeR_photo_norm_x,
+photo_vec = Vector ((eyeR_photo_norm_x,
                      eyeR_photo_norm_z,
                      eyeL_photo_norm_x,
                      eyeL_photo_norm_z))
 
-# compute vertical vector (a, b, tx, ty)'
-t_vec = src_mat.inverted() * prime_vec
+# compute vertical vector ( s*cos(r), s*sin(r), tx, ty )'
+t_vec = plane_mat.inverted() * photo_vec
 
-# Populate affinity transformation matrix from known 'a', 'b', 'tx', 'ty'
+# Fill in affinity transformation matrix with now known 's*cos(r)', 's*sin(r)', 'tx', 'ty'
 t_mat =  Matrix(([t_vec[0], -t_vec[1], t_vec[2]],
                  [t_vec[1],  t_vec[0], t_vec[3]],
                  [0,         0,        1]))
