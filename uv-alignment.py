@@ -181,15 +181,15 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 #
 # More precisely 'T' is called Affine Transformation Matrix and is written in a form:
 #
-#                | s*cos(r) -s*sin(r)  tx |
-# photo_points = | s*sin(r)  s*cos(r)  ty | * plane_points     (Equation 1)
-#                | 0         0         1  |
+#                | s*cos(r)  -s*sin(r)  tx |
+# photo_points = | s*sin(r)   s*cos(r)  ty | * plane_points     (Equation 1)
+#                | 0          0         1  |
 #
 # where 'r' is CCW rotation, 's' is uniform scale and 'tx', 'ty' are translation parameters.
 #
 # Given 4 unknown parameters 's*cos(r)', 's*sin(r)', 'tx', 'ty' there are 4 equations
 # needed to solve for 'T' and 4 corresponding knowns to populate these equations.
-# Hopefully a pair of correspoinding landmakrs gives us as much as 2 parameters
+# Hopefully one pair of correspoinding landmakrs gives us as much as 2 known parameters
 # (their 'x' and 'y' coords) therefore we need only 2 pairs of corresponding landmarks
 # between plane and photo (i.e. left and right eyes) to compute 'T'.
 #
@@ -197,7 +197,7 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 # (photo_x1, photo_y1), (photo_x2, photo_y2) corresponding eyes' coordinates on the photo
 # that we calculated on previous steps.
 #
-# Solving Equation 1 for 's*cos(r)', 's*sin(r)', 'tx', 'ty' we get:
+# Then equation 1 is solved for 's*cos(r)', 's*sin(r)', 'tx', 'ty' by the solution:
 # | s*cos(r) |   | plane_x1  -plane_y1  1  0 |-1   | photo_x1 |
 # | s*sin(r) | = | plane_y1   plane_x1  0  1 |   * | photo_y1 |
 # | tx       |   | plane_x2  -plane_y2  1  0 |     | photo_x2 |
@@ -233,13 +233,14 @@ t_mat =  Matrix(([t_vec[0], -t_vec[1], t_vec[2]],
 # photo_point = T * plane_point
 #
 # In order to align photo with plane we just need to apply transformation 'T' to plane's UV map
-# 
-# transforming uv
 uv_map = boy_photo_plane.data.uv_layers.active
+
+# iterate over UV map
 for v in boy_photo_plane.data.loops :
-    uv_vec = uv_map.data[v.index].uv # uv vector
+    uv_coord = uv_map.data[v.index].uv # exract UV-coordinate from UV map
 
-    uv_tr = t_mat * Vector((uv_vec[0], uv_vec[1], 1)) # transformed vector
+    # transform UV coordinate
+    uv_tr = t_mat * Vector((uv_coord[0], uv_coord[1], 1))
 
-    uv_vec[0] = uv_tr[0]
-    uv_vec[1] = uv_tr[1]
+    uv_coord[0] = uv_tr[0]
+    uv_coord[1] = uv_tr[1]
