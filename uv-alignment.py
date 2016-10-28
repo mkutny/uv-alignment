@@ -180,29 +180,31 @@ print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_
 # - 3d-mesh landmarks' coordinates projected on plane (plane_landmarks)
 # - landmarks' coordinates on photo (photo_landmarks)
 #
-# We want to find rotation 'r', scale 's' and translation 't' parameters, so that:
-# photo_landmarks = T(r, s, t) * plane_landmarks
-
+# We want to find rotation 'r', scale 's' and translation 't' parameters that bring
+# plane and photo into alignment, e.g.:
+# photo_landmarks = T(r, s, t) * plane_landmarks               (Equation 1)
+#
 # where T(r, s, t) is an affine transformation matrix that has a form of:
 # | s*cos(r) -s*sin(r)  tx |
 # | s*sin(r)  s*cos(r)  ty |
 # | 0         0         1  |
 #
-# Given for 4 unknowns 's', 'r', 'tx', 'ty' we could solve for 'T' using 2 pairs of known
-# correspondencies between plane and photo landmarks (e.g. two eyes).
+# Given 4 unknowns 's', 'r', 'tx', 'ty' we need 4 equations to solve for 'T' and to
+# populate 4 equations we need 4 corresponding parameters. As a pair of correspoinding 
+# landmakrs gives as much as 2 parameters ('x' and 'y' coords) we need only 2 pairs
+# of corresponding landmarks between plane and photo (e.g. two eyes) to compute 'T'.
 #
-# Let a = s*cos(r), b = s*sin(r)
-# (x1, y1), (x2, y2) - eyes' coordinates on the plane
-# (x1_prime, y1_prime), (x2_prime, y2_prime) - corresponding eyes' coordinates on the photo
+# Let (x1, y1), (x2, y2) be eyes' coordinates on the plane and
+# (x1_prime, y1_prime), (x2_prime, y2_prime) corresponding eyes' coordinates on the photo.
 #
-# Solving Equation 1 for 'a', 'b', 'tx', 'ty' we get:
-# | x1 -y1 1 0 |   | a  |   | x1_prime |
-# | y1  x1 0 1 | * | b  | = | y1_prime |
-# | x2 -y2 1 0 |   | tx |   | x2_prime |
-# | y2  x2 0 1 |   | ty |   | y2_prime |
+# Solving Equation 1 for 's*cos(r)', 's*sin(r)', 'tx', 'ty' we get:
+# | s*cos(r)  |   | x1 -y1 1 0 |-1   | x1_prime |
+# | s*sin(r)  | = | y1  x1 0 1 |   * | y1_prime |
+# | tx        |   | x2 -y2 1 0 |     | x2_prime |
+# | ty        |   | y2  x2 0 1 |     | y2_prime |
 #
 
-# Set plane's X's and Y's
+# Populate matrix with plane's X's and Y's
 src_mat = Matrix(([eyeR_plane_norm_x, -eyeR_plane_norm_z, 1, 0],
                  [eyeR_plane_norm_z,  eyeR_plane_norm_x, 0, 1],
                  [eyeL_plane_norm_x, -eyeL_plane_norm_z, 1, 0],
@@ -214,10 +216,10 @@ prime_vec = Vector ((eyeR_photo_norm_x,
                      eyeL_photo_norm_x,
                      eyeL_photo_norm_z))
 
-# compute transform vector (a, b, tx, ty)
+# compute vertical vector (a, b, tx, ty)'
 t_vec = src_mat.inverted() * prime_vec
 
-# combine affinity transformation matrix from 'a', 'b', 'tx', 'ty'
+# Populate affinity transformation matrix from known 'a', 'b', 'tx', 'ty'
 t_mat =  Matrix(([t_vec[0], -t_vec[1], t_vec[2]],
                  [t_vec[1],  t_vec[0], t_vec[3]],
                  [0,         0,        1]))
