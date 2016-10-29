@@ -10,6 +10,7 @@
 
 import bpy, bmesh
 from mathutils import Vector, Matrix
+from math import pi
 from mathutils.geometry import intersect_ray_tri
 from bpy_extras.view3d_utils import region_2d_to_vector_3d
 from bpy_extras.view3d_utils import location_3d_to_region_2d
@@ -31,18 +32,42 @@ from bpy_extras.view3d_utils import location_3d_to_region_2d
 #######################################################################################
 ### GETTING WORLD COORDINATES OF 3D MESH LANDMARKS
 
-# getting world coordinates of vertex 29478 (center of left eye of the mesh)
-boy_obj = bpy.data.objects["BoyMorphed"]
-eyeL_3D_world = boy_obj.matrix_world * boy_obj.data.vertices[29478].co
+scene = bpy.context.scene # getting current scene
 
-# getting world coordinates of vertex 29783 (center of right eye)
-eyeR_3D_world = boy_obj.matrix_world * boy_obj.data.vertices[29783].co 
+eyes = bpy.data.objects["EyeLow"]
+# make eyes active
+scene.objects.active = eyes
+# deselect all
+bpy.ops.object.select_all(action='DESELECT')
 
+# apply skin to mesh (bake skin)
+eyes_tomesh = eyes.to_mesh (scene, 1, 'RENDER')
+# convert mesh to object
+eyes_obj = bpy.data.objects.new ("Eyes", eyes_tomesh)
+# link object to scene
+scene.objects.link(eyes_obj)
+# rotate and scale eyes to match skinned
+eyes_obj.rotation_euler[0] = pi/2
+eyes_obj.scale = (0.01, 0.01, 0.01)
+# select eyes
+eyes_obj.select = True
+bpy.ops.object.transform_apply (location=True, rotation=True, scale=True)
+
+#left_eye_obj = bpy.context.object.pose.bones.get("eyes_leftEye_def_dummy")
+
+# getting world coordinates of vertex 192 (29478 for attached body) - center of left eye of the mesh
+eyeL_3D_world = eyes_obj.matrix_world * eyes_obj.data.vertices[192].co
+
+# getting world coordinates of vertex 385 (29783 for attached body) - center of right eye
+eyeR_3D_world = eyes_obj.matrix_world * eyes_obj.data.vertices[385].co 
+
+# remove temp eyes_obj from previous step
+bpy.ops.object.delete()
 
 #######################################################################################
 ### FIND OUT CORRESPONDING SCREEN COORDINATES
 
-scene = bpy.context.scene # getting current scene
+
 
 # looking for 3d view. It MUST be one with Camera as main camera. 
 # Camera frame must be visible completely in 3d view
@@ -64,7 +89,7 @@ region, rv3d = view3d_find()
 # looking for position of eyes and mouth in screeen coordinates (in pixels). 0,0 - left bottom corner of 3dview region
 eyeL_2D_px = location_3d_to_region_2d(region, rv3d, eyeL_3D_world)
 eyeR_2D_px = location_3d_to_region_2d(region, rv3d, eyeR_3D_world)
-
+#print ("eyes in pixels =", eyeL_2D_px, eyeR_2D_px)
 
 #######################################################################################
 ### PROJECT RAYS FROM SCREEN POINTS BACK TO LANDMARKS
@@ -73,15 +98,18 @@ eyeR_2D_px = location_3d_to_region_2d(region, rv3d, eyeR_3D_world)
 eyeL_ray_dir = region_2d_to_vector_3d (region, rv3d, eyeL_2D_px)
 # direction from camera origin to right eye
 eyeR_ray_dir = region_2d_to_vector_3d (region, rv3d, eyeR_2D_px)
+# print ("direction =", eyeL_ray_dir, eyeR_ray_dir)
 
 #looking for camera location because ray looks from camera location
-camera_origin = scene.objects.get('pasted__sc02_sh0010__camera_v002').location
+camera_origin = scene.objects.get('cam').location
+#print ("cam location =", camera_origin)
 
 
 #######################################################################################
 ### FIND OUT INTERSECTION WITH OUR PLANE
 
 boy_photo_plane = scene.objects.get('BoyFotoPlane')
+#print ("boy_photo_plane =", boy_photo_plane)
 
 # looking for the first intersection of line 
 # (line between 2 points: ray_dir and origin)
