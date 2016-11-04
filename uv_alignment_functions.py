@@ -32,21 +32,26 @@ from bpy_extras.view3d_utils import location_3d_to_region_2d
 # transform UV of Girl's FotoPlane based on morphed eyes and coordinates of eyes on photo:
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
-def startGirl (lx, ly, rx, ry):
+def start (lx, ly, rx, ry, sex):
     obj = skinedMeshToMesh ()
-    applyGirlTransformation (obj)
+    if sex == 'Girl':
+        applyGirlTransformation (obj)
+    elif sex == 'Boy':
+        applyBoyTransformation (obj)
+    else:
+        print ("Input correct sex: 'Boy' or 'Girl'.")
     eyeL_3D_world, eyeR_3D_world = getEyes3DWorldCo (obj)
     eyeL_plane_norm, eyeR_plane_norm  = getEyesNormCoPlane (eyeL_3D_world, eyeR_3D_world)
     eyeL_photo_norm, eyeR_photo_norm = getEyesNormCoFoto (lx, ly, rx, ry)
     t_mat = getAffineMatrix (eyeL_plane_norm, eyeR_plane_norm, eyeL_photo_norm, eyeR_photo_norm)
     transformUV (t_mat)
-    # input sex: string 'Girl' or 'Boy'
-    exportFotoPlaneFBX ('Girl')
+    exportFotoPlaneFBX (sex)
 
 
 
 # apply skin to mesh (bake skin)
 def skinedMeshToMesh ():
+    bpy.ops.object.select_all(action='DESELECT')
     skinnedMesh = bpy.data.objects["Eyes"]
     scene = bpy.context.scene
     # apply all modifiers (and skin also)
@@ -209,6 +214,8 @@ def getEyesNormCoFoto(lx, ly, rx, ry):
 
     eyeR_photo_x = rx       # x position of the right eye on the photo in pixels
     eyeR_photo_z = ry       # z position of the right eye on the photo in pixels
+
+    bpy.ops.image.reload ()
 
     photo_x_size = bpy.data.images['Foto'].size[0]    # width of the photo in pixels
     photo_z_size = bpy.data.images['Foto'].size[1]    # height of the photo in pixels
