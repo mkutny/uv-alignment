@@ -52,12 +52,12 @@ def start (lx, ly, rx, ry, sex):
 # apply skin to mesh (bake skin)
 def skinedMeshToMesh ():
     bpy.ops.object.select_all(action='DESELECT')
-    skinnedMesh = bpy.data.objects["Eyes"]
+    skinned_mesh = bpy.data.objects["Eyes"]
     scene = bpy.context.scene
     # apply all modifiers (and skin also)
-    tomesh = skinnedMesh.to_mesh (scene, 1, 'RENDER')
+    to_mesh = skinned_mesh.to_mesh (scene, 1, 'RENDER')
     # convert mesh to object
-    obj = bpy.data.objects.new ("Baked" + skinnedMesh.name, tomesh)
+    obj = bpy.data.objects.new ("Baked" + skinned_mesh.name, to_mesh)
     # link object to scene
     scene.objects.link(obj)
     return obj
