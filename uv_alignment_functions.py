@@ -10,7 +10,6 @@
 
 import bpy, bmesh
 from mathutils import Vector, Matrix
-from math import pi, radians
 from mathutils.geometry import intersect_ray_tri
 from bpy_extras.view3d_utils import region_2d_to_vector_3d
 from bpy_extras.view3d_utils import location_3d_to_region_2d
@@ -32,28 +31,85 @@ from bpy_extras.view3d_utils import location_3d_to_region_2d
 # transform UV of Girl's FotoPlane based on morphed eyes and coordinates of eyes on photo:
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
-def start (lx, ly, rx, ry, sex):
-    obj = skinedMeshToMesh ()
-    if sex == 'Girl':
-        applyGirlTransformation (obj)
-    elif sex == 'Boy':
-        applyBoyTransformation (obj)
-    else:
-        print ("Input correct sex: 'Boy' or 'Girl'.")
-    eyeL_3D_world, eyeR_3D_world = getEyes3DWorldCo (obj)
-    eyeL_plane_norm, eyeR_plane_norm  = getEyesNormCoPlane (eyeL_3D_world, eyeR_3D_world)
-    eyeL_photo_norm, eyeR_photo_norm = getEyesNormCoFoto (lx, ly, rx, ry)
+def start (lx, ly, rx, ry, fbx_path, location, rotation, scale):
+    scene = bpy.context.scene
+
+    # finding eyes object of skinned character
+    skinned_eyes_obj = bpy.data.objects["Eyes"]
+
+    # finding plane with photo of character
+    photo_plane = scene.objects.get('FotoPlane')
+
+    # finding camera looking at character 
+    cam = scene.objects.get('cam')
+
+    # getting size of FotoPlane. 
+    # Because origin is in the center, I need sum length in positive and negative direction
+    photo_plane_size = 4.71391 * 2 # width/height of the BoyFotoPlane in units (because width=height)
+
+    # applying skin to eyes
+    eyes_obj = skinedMeshToMesh (skinned_eyes_obj)
+
+    # applying character specific transormation to align baked eyes with skinned eyes
+    applyTransformation (eyes_obj, location, rotation, scale)
+
+    # Getting world coordinates of 3D eyes' mesh (our landmarks)
+    # vertex 192 - center of left eye
+    eyeL_3D_world = eyes_obj.matrix_world * eyes_obj.data.vertices[192].co
+    # vertex 385 - center of right eye
+    eyeR_3D_world = eyes_obj.matrix_world * eyes_obj.data.vertices[385].co 
+
+    # find coordinates on FotoPlane (local space) of 3D mesh landmarks
+    eyeL_3D_plane = point3D_to_point2D_with_same_screen_co (eyeL_3D_world, cam, photo_plane)
+    eyeR_3D_plane = point3D_to_point2D_with_same_screen_co (eyeR_3D_world, cam, photo_plane)
+
+    # Converting 3D coordinates to 2D point.
+    # Because I need only local axis X and Z (Y = 0 for all vertices)
+    eyeL_plane = Vector ((eyeL_3D_plane[0], eyeL_3D_plane[2]))
+    eyeR_plane = Vector ((eyeR_3D_plane[0], eyeR_3D_plane[2]))
+
+    # Convert plane landmark to UV-coordinates: (0,0) is bottom left, (1,1) is top right
+    # In other words, normalizing coordinates of eyes intersection from local to range (0,0)-(1,1) and inverting Z axis
+    eyeL_plane_norm = norm_2D_co (eyeL_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
+    print ("Left Eye Plane normalized coordinates =", eyeL_plane_norm)
+
+    eyeR_plane_norm = norm_2D_co (eyeR_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
+    print ("Right Eye Plane normalized coordinates =", eyeR_plane_norm)
+
+    # Get photo landmark coordinates
+    # TODO I need to get coordinates of eyesfrom FaceGen or landmarker.io
+
+    # reload Foto file
+    bpy.ops.image.reload ()
+
+    # finding width and height of Foto of character
+    photo_width = bpy.data.images['Foto'].size[0]    # width of the photo in pixels
+    photo_height = bpy.data.images['Foto'].size[1]    # height of the photo in pixels
+
+    # normalizing coordinates of left eye on the photo. 
+    # In other words, I'm looking UV coordinates of eyes on foto
+    eyeL_photo_norm = norm_2D_co (Vector((lx, ly)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
+    print ("Left Eye Foto normalized coordinates =", eyeL_photo_norm)
+
+    # normalizing coordinates of right eye on the photo
+    eyeR_photo_norm = norm_2D_co (Vector((rx, ry)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
+    print ("Right Eye Foto normalized coordinates =", eyeR_photo_norm)
+
+    # Calculating matrix to transform landmarks on foto to match landmarks on plane
     t_mat = getAffineMatrix (eyeL_plane_norm, eyeR_plane_norm, eyeL_photo_norm, eyeR_photo_norm)
-    transformUV (t_mat)
-    exportFotoPlaneFBX (sex)
+
+    # Transforming UV of FotoPlane with help of transformation matrix
+    transformUV (t_mat, photo_plane)
+
+    # Exportin FotoPlane with animation to FBX
+    export_object_to_FBX (fbx_path, photo_plane)
 
 
 
 # apply skin to mesh (bake skin)
-def skinedMeshToMesh ():
-    bpy.ops.object.select_all(action='DESELECT')
-    skinned_mesh = bpy.data.objects["Eyes"]
+def skinedMeshToMesh (skinned_mesh):
     scene = bpy.context.scene
+    bpy.ops.object.select_all(action='DESELECT')
     # apply all modifiers (and skin also)
     to_mesh = skinned_mesh.to_mesh (scene, 1, 'RENDER')
     # convert mesh to object
@@ -64,36 +120,13 @@ def skinedMeshToMesh ():
 
 
 
-def applyBoyTransformation (obj):
-    # rotate and scale eyes to match skinned
-    obj.rotation_euler[0] = pi/2
-    obj.scale = (0.01, 0.01, 0.01)
-    # select eyes
-    obj.select = True
-    bpy.ops.object.transform_apply (location=True, rotation=True, scale=True)
-
-
-
-def applyGirlTransformation (obj):
+def applyTransformation (obj, location, rotation, scale):
     # rotate, transform and scale eyes to match skinned
-    obj.location = (0.16856, 0.13704, 0.02343)
-    obj.rotation_euler = (pi/2, 0, radians (-69.89))
-    obj.scale = (0.0085, 0.0085, 0.0085)
-    # select eyes
+    obj.location = location
+    obj.rotation_euler = rotation
+    obj.scale = scale
     obj.select = True
     bpy.ops.object.transform_apply (location=True, rotation=True, scale=True)
-
-
-#######################################################################################
-### GETTING WORLD COORDINATES OF 3D MESH LANDMARKS
-def getEyes3DWorldCo (eyesObj):
-    # getting world coordinates of vertex 192 - center of girl's left eye
-    eyeL_3D_world = eyesObj.matrix_world * eyesObj.data.vertices[192].co
-    # getting world coordinates of vertex 385 - center of girl's right eye
-    eyeR_3D_world = eyesObj.matrix_world * eyesObj.data.vertices[385].co 
-    return eyeL_3D_world, eyeR_3D_world
-
-
 
 
 # looking for 3d view. It MUST be one with Camera as main camera. 
@@ -102,12 +135,25 @@ def view3d_find():
     # returns first 3d view, normally we get from context
     for area in bpy.context.window.screen.areas:
         if area.type == 'VIEW_3D':
+
             v3d = area.spaces[0]
             rv3d = v3d.region_3d
             for region in area.regions:
                 if region.type == 'WINDOW':
+                    # region - part of screen area in Blender; 
+                    # rv3d - region that has 3D view (we can see our 3D scene through this region)
                     return region, rv3d
     return None, None
+
+
+# draw cross at certain position (world coordinates)
+def draw_cross (cross_position, message="Drew cross at:", size=1):
+    scene = bpy.context.scene
+    print(message, cross_position)
+    cross = bpy.data.objects.new("Cross", None)
+    cross.location = cross_position
+    cross.empty_draw_size = size
+    scene.objects.link(cross)
 
 
 
@@ -125,118 +171,70 @@ def get_intesection (ob, origin, ray_dir):
         for face in bm.faces:
             intersection = intersect_ray_tri(face.verts[0].co, face.verts[1].co, face.verts[2].co, ray_dir, origin)
             if intersection is not None:
-                print("Intersection found:", intersection)
-                
-                # drawing cross in place of intersection
-                inter = bpy.data.objects.new("Intersection", None)
-                inter.location = intersection
-                inter.empty_draw_size = 2
-                scene.objects.link(inter)
+                draw_cross (intersection, "Intersection found:")
+                # print("Intersection found:", intersection)
+                # # drawing cross in place of intersection
+                # inter = bpy.data.objects.new("Intersection", None)
+                # inter.location = intersection
+                # inter.empty_draw_size = 2
+                # scene.objects.link(inter)
 
                 break # find the first intersection only
         
     return intersection
 
 
-#######################################################################################
-### FIND OUT CORRESPONDING SCREEN COORDINATES
-def getEyesNormCoPlane (eyeL_3D_world, eyeR_3D_world):
+
+# find 2D point on plane (local space) corresponding to 3D point (world space) 
+# with the same coordinates in screen space of camera
+def point3D_to_point2D_with_same_screen_co (point3D, cam, plane):
     scene = bpy.context.scene
-    photo_plane = scene.objects.get('FotoPlane')
-
-    #looking for camera location because ray looks from camera location
-    camera_origin = scene.objects.get('cam').location
-
-    # region - part of screen area in Blender; 
-    # rv3d - region that has 3D view (we can see our 3D scene through this region)
     region, rv3d = view3d_find()
+    # Find out screen coordinates of 3d point
+    point2D_screen = location_3d_to_region_2d(region, rv3d, point3D)
+    # print ("point2D in pixels =", point2D_screen)
 
-    # looking for position of eyes and mouth in screeen coordinates
-    eyeL_2D_px = location_3d_to_region_2d(region, rv3d, eyeL_3D_world)
-    eyeR_2D_px = location_3d_to_region_2d(region, rv3d, eyeR_3D_world)
-    # print ("Girl's eyes in pixels =", eyeL_2D_px, eyeR_2D_px)
+    # Project RAYS from screen points back to landmarks
+    ray_dir = region_2d_to_vector_3d (region, rv3d, point2D_screen) # direction from camera origin to 2D point
 
-    #######################################################################################
-    ### PROJECT RAYS FROM SCREEN POINTS BACK TO LANDMARKS
+    # Find out intersection with plane
+    inter = get_intesection (plane, cam.location, ray_dir) # get intersection world coordinates
 
-    # direction from camera origin to left eye
-    eyeL_ray_dir = region_2d_to_vector_3d (region, rv3d, eyeL_2D_px)
-    # direction from camera origin to right eye
-    eyeR_ray_dir = region_2d_to_vector_3d (region, rv3d, eyeR_2D_px)
-    # print ("direction =", eyeL_ray_dir, eyeR_ray_dir)
+    # convert coordinates of intersection from world to plane's local
+    # local coordinates of plane start in center and have axis X = looking right, Y = 0, Z = looking down
+    point2D = plane.matrix_world.inverted() * inter
 
-    #######################################################################################
-    ### FIND OUT INTERSECTION WITH OUR PLANE
-
-    # get intersection world coordinates
-    eyeL_plane_glob = get_intesection (photo_plane, camera_origin, eyeL_ray_dir)
-    eyeR_plane_glob = get_intesection (photo_plane, camera_origin, eyeR_ray_dir)
-    # convert coordinates of intersection from world to FotoPlane's local
-    # local coordinates of BoyFotoPlane start in center and have axis X = looking right, Y = 0, Z = looking down
-    eyeL_plane_local = photo_plane.matrix_world.inverted() * eyeL_plane_glob
-    eyeR_plane_local = photo_plane.matrix_world.inverted() * eyeR_plane_glob
-
-    #######################################################################################
-    ### CONVERT PLANE LANDMARK COORDINATES TO UV-space
-
-    # ToDo - could it be taken from plane properties?
-    # Yes, but I know only one way - for certain vertex. 
-    # For example photo_plane.data.vertices[0].co.z
-    # In other words, I'm looking for vertex local coordinates in some corner of the plane
-    photo_plane_size = 4.71391 * 2 # width/height of the BoyFotoPlane in units (because width=height)
-
-    # convert to uv-coordinates: (0,0) is bottom left, (1,1) is top right
-    # normalizing coordinates of left eye intersection from local to range (0,0)-(1,1) and inverting Z axis
-    eyeL_plane_norm_x = (eyeL_plane_local[0] + photo_plane_size/2) / photo_plane_size
-    eyeL_plane_norm_z = 1 - (eyeL_plane_local[2] + photo_plane_size/2) / photo_plane_size
-
-    # normalizing coordinates of right eye intersection from local to range (0,0)-(1,1) and inverting Z axis
-    eyeR_plane_norm_x = (eyeR_plane_local[0] + photo_plane_size/2) / photo_plane_size
-    eyeR_plane_norm_z = 1 - (eyeR_plane_local[2] + photo_plane_size/2) / photo_plane_size
-
-    print ("Left Eye Plane normalized coordinates = ", eyeL_plane_norm_x, eyeL_plane_norm_z)
-    print ("Right Eye Plane normalized coordinates = ", eyeR_plane_norm_x, eyeR_plane_norm_z)
-    
-    return Vector((eyeL_plane_norm_x, eyeL_plane_norm_z)), Vector((eyeR_plane_norm_x, eyeR_plane_norm_z))
+    return point2D
 
 
 
-#######################################################################################
-### GET PHOTO LANDMARK COORDINATES
-# getting coordinates of eyes on photo from FaceGen
-def getEyesNormCoFoto(lx, ly, rx, ry):
-    # x=0, z=0 are in the left top of the photo.
-    # z looking down.
-    # I named vertical axis as z because
-    # when I'm using local coordinates of BoyFotoPlane I have axis x and z (y = 0 for all vertices).
-    eyeL_photo_x = lx       # x position of the left eye on the photo in pixels
-    eyeL_photo_z = ly       # z position of the left eye on the photo in pixels
+# get normalized coordinates of 2D point on plane with dimensions: WIDTH and HEIGHT
+# origin of coordinates can be CENTER or TOPLEFT
+# Y can poit UP or DOWN
+# Output value limits from 0,0 to 1,1
+def norm_2D_co (point, width, height, origin, y):
+    if origin=='CENTER':
+        point_norm_x = point[0]/width + 0.5
+        if y=='DOWN':
+            point_norm_y = 1 - point[1]/height - 0.5
+        elif y=='UP':
+            point_norm_y = point[1]/height + 0.5
+        else:
+            print ("Give me correct direction of Y axis: 'UP' or 'DOWN'")
+    elif origin=='TOPLEFT':
+        point_norm_x = point[0]/width
+        if y=='DOWN':
+            point_norm_y = 1 - point[1]/height
+        elif y=='UP':
+            point_norm_y = point[1]/height
+        else:
+            print ("Give me correct direction of Y axis: 'UP' or 'DOWN'")
+    else:
+        print ("Give me correct origin of coordinates: 'CENTER' or 'TOPLEFT'")
+    # TODO Add name of input parameter to print output
+    # print ("Normailzed coordinates:", Vector ((point_norm_x, point_norm_y)))
+    return Vector ((point_norm_x, point_norm_y))
 
-    eyeR_photo_x = rx       # x position of the right eye on the photo in pixels
-    eyeR_photo_z = ry       # z position of the right eye on the photo in pixels
-
-    bpy.ops.image.reload ()
-
-    photo_x_size = bpy.data.images['Foto'].size[0]    # width of the photo in pixels
-    photo_z_size = bpy.data.images['Foto'].size[1]    # height of the photo in pixels
-
-
-    #######################################################################################
-    ### CONVERT PHOTO COORDS TO UV-SPACE
-
-    # normalizing coordinates of left eye on the photo from pixels to (0,0)-(1,1) and inverting Z axis
-    eyeL_photo_norm_x = eyeL_photo_x / photo_x_size
-    eyeL_photo_norm_z = 1 - eyeL_photo_z / photo_z_size
-
-    # normalizing coordinates of right eye on the photo from pixels to (0,0)-(1,1) and inverting Z axis
-    eyeR_photo_norm_x = eyeR_photo_x / photo_x_size
-    eyeR_photo_norm_z = 1 - eyeR_photo_z / photo_z_size
-
-    print ("Left Eye Foto normalized coordinates = ", eyeL_photo_norm_x, eyeL_photo_norm_z)
-    print ("Right Eye Foto normalized coordinates = ", eyeR_photo_norm_x, eyeR_photo_norm_z)
-    
-
-    return Vector((eyeL_photo_norm_x, eyeL_photo_norm_z)), Vector((eyeR_photo_norm_x, eyeR_photo_norm_z))
 
 
 
@@ -297,18 +295,17 @@ def getAffineMatrix(eyeL_plane_norm, eyeR_plane_norm, eyeL_photo_norm, eyeR_phot
 
 #######################################################################################
 ### APPLY AFFINE TRANSFORMATION TO UV MAP
-def transformUV (affineMatrix):
+def transformUV (affineMatrix, ob):
     scene = bpy.context.scene
-    photo_plane = scene.objects.get('FotoPlane')
     # Now we have affine transformation 'T' that for every point on plane locates matching
     # point on photo:
     # photo_point = T * plane_point
     #
     # In order to align photo with plane we just need to apply transformation 'T' to plane's UV map
-    uv_map = photo_plane.data.uv_layers.active
+    uv_map = ob.data.uv_layers.active
 
-    # iterate over UV map
-    for v in photo_plane.data.loops :
+    # iterate over all vertices of UV map
+    for v in ob.data.loops :
         uv_coord = uv_map.data[v.index].uv # exract UV-coordinate from UV map
 
         # transform UV coordinate
@@ -318,12 +315,9 @@ def transformUV (affineMatrix):
         uv_coord[1] = uv_tr[1]
 
 
-def exportFotoPlaneFBX(sex):
-    fbx_path = "d:\desktop\Matching-Photo-n-3D-4UE\sc01_sh0030_{0}FotoPlane_transfUV.fbx".format(sex)
-    scene = bpy.context.scene
-    photo_plane = scene.objects.get('FotoPlane')
+def export_object_to_FBX (fbx_path, ob):
     bpy.ops.object.select_all(action='DESELECT')
-    photo_plane.select = True
+    ob.select = True
     bpy.ops.export_scene.fbx (filepath=fbx_path, check_existing=False, axis_forward='-Z', axis_up='Y',
                     filter_glob="*.fbx", version='BIN7400', ui_tab='MAIN', use_selection=True,
                     global_scale=1.0, apply_unit_scale=True, bake_space_transform=False,
