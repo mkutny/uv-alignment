@@ -31,7 +31,7 @@ from bpy_extras.view3d_utils import location_3d_to_region_2d
 # transform UV of Girl's FotoPlane based on morphed eyes and coordinates of eyes on photo:
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
-def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane):
+def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, rotation, scale, plane_ar):
     scene = bpy.context.scene
 
     # finding eyes object of skinned character
