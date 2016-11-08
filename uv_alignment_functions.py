@@ -231,26 +231,26 @@ def convert_point3D_to_point2D_w_same_screen_co (point3D, cam, plane):
 # Y-axis can poit UP or DOWN
 # Output value limits from 0,0 to 1,1
 def convert_to_uv (point, width, height, origin, y_dir):
+    x_orig = point[0]
+    y_orig = point[1]
+
+    x_uv = x_orig/width
+    y_uv = y_orig/height
+
     if origin == 'CENTER':
-        x_uv = point[0]/width + 0.5
-        if y_dir == 'DOWN':
-            y_uv = 0.5 - point[1]/height
-        elif y_dir == 'UP':
-            y_uv = point[1]/height + 0.5
-        else:
-            print ("Give me correct direction of Y axis: 'UP' or 'DOWN'")
-    elif origin == 'TOPLEFT':
-        x_uv = point[0]/width
-        if y_dir == 'DOWN':
-            y_uv = 1 - point[1]/height
-        elif y_dir == 'UP':
-            y_uv = point[1]/height
-        else:
-            print ("Give me correct direction of Y axis: 'UP' or 'DOWN'")
-    else:
+        x_uv = x_uv + 0.5
+        y_uv = y_uv + 0.5
+    elif origin != 'TOPLEFT':
         print ("Give me correct origin of coordinates: 'CENTER' or 'TOPLEFT'")
+
+    if y_dir == 'DOWN':
+        y_uv = 1 - y_uv
+    elif y_dir != 'UP':
+        print ("Give me correct direction of Y axis: 'UP' or 'DOWN'")
+
     # TODO Add name of input parameter to print output
     # print ("Normailzed coordinates:", Vector ((point_norm_x, point_norm_y)))
+
     return Vector ((x_uv, y_uv))
 
 
