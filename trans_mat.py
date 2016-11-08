@@ -90,22 +90,14 @@ def test_144_vs_144():
   trans_mat = get_transform(l_plane, r_plane, l_foto, r_foto)
   #trans_mat = get_transform(l_foto, r_foto, l_plane, r_plane)
 
-  uv_mat = [[0, 1, 1, 0], # (1,1)
-            [0, 0, 1, 1],
-            [1, 1, 1, 1]]
-  np_uv_mat = np.matrix(uv_mat)
-  uv_mat_t = trans_mat * np_uv_mat
+  uv_mat = np.matrix([[0, 1, 1, 0], # (1,1)
+                      [0, 0, 1, 1],
+                      [1, 1, 1, 1]])
+  uv_mat_t = trans_mat * uv_mat
   print(uv_mat_t.T)
 
-  uv_vec = [[1],
-            [1],
-            [1]]
-  np_uv_vec = np.matrix(uv_vec)
-  uv_vec_t = trans_mat * np_uv_vec
-  print(uv_vec_t)
-
   gt_uv = [[-0.038, -0.033, 1], # (0,0)
-           [ 1.101, -0.03,  1 ], # (1,0)
+           [ 1.101, -0.03,  1], # (1,0)
            [ 1.098,  1.109, 1], # (1,1)
            [-0.04,   1.106, 1]] # (0,1)
 
