@@ -32,6 +32,7 @@ from bpy_extras.view3d_utils import location_3d_to_region_2d
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
 def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, rotation, scale, plane_AR):
+
     scene = bpy.context.scene
 
     # finding eyes object of skinned character
@@ -74,10 +75,10 @@ def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, 
     # Convert plane landmark to UV-coordinates: (0,0) is bottom left, (1,1) is top right
     # Plane origin is located at center and y-axis points down
     eyeL_plane_uv = convert_to_uv (eyeL_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
-    print ("Left Eye Plane normalized coordinates =", eyeL_plane_norm)
+    print ("Left Eye Plane normalized coordinates =", eyeL_plane_uv)
 
     eyeR_plane_uv = convert_to_uv (eyeR_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
-    print ("Right Eye Plane normalized coordinates =", eyeR_plane_norm)
+    print ("Right Eye Plane normalized coordinates =", eyeR_plane_uv)
 
     # Get photo landmark coordinates
     # TODO I need to get coordinates of eyesfrom FaceGen or landmarker.io
@@ -93,11 +94,11 @@ def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, 
     # normalizing coordinates of left eye on the photo. 
     # In other words, I'm looking UV coordinates of eyes on foto
     eyeL_photo_uv = convert_to_uv (Vector((lx, ly)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
-    print ("Left Eye Foto normalized coordinates =", eyeL_photo_norm)
+    print ("Left Eye Foto normalized coordinates =", eyeL_photo_uv)
 
     # normalizing coordinates of right eye on the photo
     eyeR_photo_uv = convert_to_uv (Vector((rx, ry)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
-    print ("Right Eye Foto normalized coordinates =", eyeR_photo_norm)
+    print ("Right Eye Foto normalized coordinates =", eyeR_photo_uv)
 
     # Calculating matrix to transform landmarks on foto to match landmarks on plane
     t_mat = get_affine_matrix (eyeL_plane_uv, eyeR_plane_uv, eyeL_photo_uv, eyeR_photo_uv, photo_AR, plane_AR)
