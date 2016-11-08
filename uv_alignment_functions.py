@@ -31,7 +31,7 @@ from bpy_extras.view3d_utils import location_3d_to_region_2d
 # transform UV of Girl's FotoPlane based on morphed eyes and coordinates of eyes on photo:
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
-def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane):
+def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, rotation, scale, plane_AR):
     scene = bpy.context.scene
 
     # finding eyes object of skinned character
@@ -72,11 +72,11 @@ def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, 
     eyeR_plane = Vector ((eyeR_3D_plane[0], eyeR_3D_plane[2]))
 
     # Convert plane landmark to UV-coordinates: (0,0) is bottom left, (1,1) is top right
-    # In other words, normalizing coordinates of eyes intersection from local to range (0,0)-(1,1) and inverting Z axis
-    eyeL_plane_norm = normalize_2D_co (eyeL_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
+    # Plane origin is located at center and y-axis points down
+    eyeL_plane_uv = convert_to_uv (eyeL_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
     print ("Left Eye Plane normalized coordinates =", eyeL_plane_norm)
 
-    eyeR_plane_norm = normalize_2D_co (eyeR_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
+    eyeR_plane_uv = convert_to_uv (eyeR_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
     print ("Right Eye Plane normalized coordinates =", eyeR_plane_norm)
 
     # Get photo landmark coordinates
@@ -88,19 +88,19 @@ def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, 
     # finding width and height of Foto of character
     photo_width = bpy.data.images['Foto'].size[0]   # width of the photo in pixels
     photo_height = bpy.data.images['Foto'].size[1]  # height of the photo in pixels
-    photo_ar = photo_height/photo_width             # aspect ration of photo
+    photo_AR = photo_height/photo_width             # aspect ration of photo
 
     # normalizing coordinates of left eye on the photo. 
     # In other words, I'm looking UV coordinates of eyes on foto
-    eyeL_photo_norm = normalize_2D_co (Vector((lx, ly)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
+    eyeL_photo_uv = convert_to_uv (Vector((lx, ly)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
     print ("Left Eye Foto normalized coordinates =", eyeL_photo_norm)
 
     # normalizing coordinates of right eye on the photo
-    eyeR_photo_norm = normalize_2D_co (Vector((rx, ry)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
+    eyeR_photo_uv = convert_to_uv (Vector((rx, ry)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
     print ("Right Eye Foto normalized coordinates =", eyeR_photo_norm)
 
     # Calculating matrix to transform landmarks on foto to match landmarks on plane
-    t_mat = get_affine_matrix (eyeL_plane_norm, eyeR_plane_norm, eyeL_photo_norm, eyeR_photo_norm, photo_ar, plane_ar)
+    t_mat = get_affine_matrix (eyeL_plane_uv, eyeR_plane_uv, eyeL_photo_uv, eyeR_photo_uv, photo_AR, plane_AR)
 
     # Transforming UV of FotoPlane with help of transformation matrix
     transform_UV (t_mat, photo_plane)
@@ -227,37 +227,37 @@ def convert_point3D_to_point2D_w_same_screen_co (point3D, cam, plane):
 
 # get normalized coordinates of 2D point on plane with dimensions: WIDTH and HEIGHT
 # origin of coordinates can be CENTER or TOPLEFT
-# Y can poit UP or DOWN
+# Y-axis can poit UP or DOWN
 # Output value limits from 0,0 to 1,1
-def normalize_2D_co (point, width, height, origin, y):
-    if origin=='CENTER':
-        point_norm_x = point[0]/width + 0.5
-        if y=='DOWN':
-            point_norm_y = 0.5 - point[1]/height
-        elif y=='UP':
-            point_norm_y = point[1]/height + 0.5
+def convert_to_uv (point, width, height, origin, y_dir):
+    if origin == 'CENTER':
+        x_uv = point[0]/width + 0.5
+        if y_dir == 'DOWN':
+            y_uv = 0.5 - point[1]/height
+        elif y_dir == 'UP':
+            y_uv = point[1]/height + 0.5
         else:
             print ("Give me correct direction of Y axis: 'UP' or 'DOWN'")
-    elif origin=='TOPLEFT':
-        point_norm_x = point[0]/width
-        if y=='DOWN':
-            point_norm_y = 1 - point[1]/height
-        elif y=='UP':
-            point_norm_y = point[1]/height
+    elif origin == 'TOPLEFT':
+        x_uv = point[0]/width
+        if y_dir == 'DOWN':
+            y_uv = 1 - point[1]/height
+        elif y_dir == 'UP':
+            y_uv = point[1]/height
         else:
             print ("Give me correct direction of Y axis: 'UP' or 'DOWN'")
     else:
         print ("Give me correct origin of coordinates: 'CENTER' or 'TOPLEFT'")
     # TODO Add name of input parameter to print output
     # print ("Normailzed coordinates:", Vector ((point_norm_x, point_norm_y)))
-    return Vector ((point_norm_x, point_norm_y))
+    return Vector ((x_uv, y_uv))
 
 
 
 
 #######################################################################################
 ### FIND AFFINE TRANSFORMATION (ROTATION, SCALE, TRANSLATION)
-def get_affine_matrix(eyeL_plane_norm, eyeR_plane_norm, eyeL_photo_norm, eyeR_photo_norm, photo_ar, plane_ar):
+def get_affine_matrix(eyeL_plane, eyeR_plane, eyeL_photo, eyeR_photo, photo_ar, plane_ar):
     
     # We want to find such an affine transformation 'T' that brings photo and plane points
     # in correspondence: photo_points = T * plane_points
@@ -285,54 +285,49 @@ def get_affine_matrix(eyeL_plane_norm, eyeR_plane_norm, eyeL_photo_norm, eyeR_ph
     # | s*sin(r) | = | plane_y1   plane_x1  0  1 |   * | photo_y1 |
     # | tx       |   | plane_x2  -plane_y2  1  0 |     | photo_x2 |
     # | ty       |   | plane_y2   plane_x2  0  1 |     | photo_y2 |
-    #
-    # If we need to take into account aspect ratio of real photo - AR, then:
-    # | s*cos(r) |   | plane_x1     -AR*plane_y1  1  0 |-1   | photo_x1 |
-    # | s*sin(r) | = | AR*plane_y1   plane_x1     0  1 |   * | photo_y1 |
-    # | tx       |   | plane_x2     -AR*plane_y2  1  0 |     | photo_x2 |
-    # | ty       |   | AR*plane_y2   plane_x2     0  1 |     | photo_y2 |
-    #
-    #
-    #
-
-    scale_y = plane_ar/photo_ar
 
     # Populate matrix with plane's X's and Y's
-    plane_mat = Matrix(([eyeR_plane_norm[0], -eyeR_plane_norm[1], 1, 0],
-                        [eyeR_plane_norm[1],  eyeR_plane_norm[0], 0, 1],
-                        [eyeL_plane_norm[0], -eyeL_plane_norm[1], 1, 0],
-                        [eyeL_plane_norm[1],  eyeL_plane_norm[0], 0, 1]))
+    plane_mat = Matrix(([eyeR_plane[0], -eyeR_plane[1], 1, 0],
+                        [eyeR_plane[1],  eyeR_plane[0], 0, 1],
+                        [eyeL_plane[0], -eyeL_plane[1], 1, 0],
+                        [eyeL_plane[1],  eyeL_plane[0], 0, 1]))
 
     # Set photo's X's and Y's
-    photo_vec = Vector ((eyeR_photo_norm[0],
-                         eyeR_photo_norm[1],
-                         eyeL_photo_norm[0],
-                         eyeL_photo_norm[1]))
+    photo_vec = Vector ((eyeR_photo[0],
+                         eyeR_photo[1],
+                         eyeL_photo[0],
+                         eyeL_photo[1]))
 
     # compute vertical vector ( s*cos(r), s*sin(r), tx, ty )'
     t_vec = plane_mat.inverted() * photo_vec
 
     # Fill in affinity transformation matrix with now known 's*cos(r)', 's*sin(r)', 'tx', 'ty'
-    t_mat =  Matrix(([t_vec[0],           -t_vec[1],           t_vec[2]],
-                     [scale_y * t_vec[1],  scale_y * t_vec[0], t_vec[3]],
-                     [0,                   0,                  1]))
-    return t_mat
+    t_mat =  Matrix(([t_vec[0], -t_vec[1], t_vec[2]],
+                     [t_vec[1],  t_vec[0], t_vec[3]],
+                     [0,         0,        1]))
+
+    scale_y = plane_ar/photo_ar
+    scale_mat = Matrix(([1, 0,       0],
+                        [0, scale_y, 0],
+                        [0, 0,       1]))
+
+    return scale_mat * t_mat
 
 
 
 #######################################################################################
 ### APPLY AFFINE TRANSFORMATION TO UV MAP
-def transform_UV (affineMatrix, ob):
+def transform_UV (affineMatrix, obj):
     scene = bpy.context.scene
     # Now we have affine transformation 'T' that for every point on plane locates matching
     # point on photo:
     # photo_point = T * plane_point
     #
     # In order to align photo with plane we just need to apply transformation 'T' to plane's UV map
-    uv_map = ob.data.uv_layers.active
+    uv_map = obj.data.uv_layers.active
 
     # iterate over all vertices of UV map
-    for v in ob.data.loops :
+    for v in obj.data.loops :
         uv_coord = uv_map.data[v.index].uv # exract UV-coordinate from UV map
 
         # transform UV coordinate
@@ -342,9 +337,9 @@ def transform_UV (affineMatrix, ob):
         uv_coord[1] = uv_tr[1]
 
 
-def export_object_to_FBX (fbx_path, ob):
+def export_object_to_FBX (fbx_path, obj):
     bpy.ops.object.select_all(action='DESELECT')
-    ob.select = True
+    obj.select = True
     bpy.ops.export_scene.fbx (filepath=fbx_path, check_existing=False, axis_forward='-Z', axis_up='Y',
                     filter_glob="*.fbx", version='BIN7400', ui_tab='MAIN', use_selection=True,
                     global_scale=1.0, apply_unit_scale=True, bake_space_transform=False,
