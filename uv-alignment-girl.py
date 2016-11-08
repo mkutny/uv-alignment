@@ -10,7 +10,7 @@ rotation = (pi/2, 0, radians (-69.89))
 scale = (0.0085, 0.0085, 0.0085)
 fbx_path = "d:\desktop\Matching-Photo-n-3D-4UE\sc01_sh0030_GirlFotoPlane_transfUV.fbx"
 shapekey_eyes_path = "d:\desktop\Reconstruction-kids-for-clients\BeautifulGirl\BeautifulGirl-Eyes.obj"
-AR_plane = 1.397 # aspect ratio of Girl's FotoPlane
+AR_plane = 1.44 # aspect ratio of Girl's FotoPlane
 
 # start match_foto_with_3D function to transform UV of Girl's FotoPlane based on coordinates
 # of eyes on Photo:

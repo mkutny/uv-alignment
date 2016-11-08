@@ -302,14 +302,16 @@ def get_affine_matrix(eyeL_plane, eyeR_plane, eyeL_photo, eyeR_photo, photo_ar, 
     # compute vertical vector ( s*cos(r), s*sin(r), tx, ty )'
     t_vec = plane_mat.inverted() * photo_vec
 
+    scale_y = 1 # plane_ar/photo_ar # plane_ar
+    print ("scale_y", scale_y)
     # Fill in affinity transformation matrix with now known 's*cos(r)', 's*sin(r)', 'tx', 'ty'
-    t_mat =  Matrix(([t_vec[0], -t_vec[1], t_vec[2]],
-                     [t_vec[1],  t_vec[0], t_vec[3]],
-                     [0,         0,        1]))
+    t_mat =  Matrix(([t_vec[0], -scale_y*t_vec[1], t_vec[2]],
+                     [t_vec[1],  scale_y*t_vec[0], t_vec[3]],
+                     [0,         0,                1]))
 
-    scale_y = plane_ar/photo_ar
+    
     scale_mat = Matrix(([1, 0,       0],
-                        [0, scale_y, 0],
+                        [0, 1, 0],
                         [0, 0,       1]))
 
     return scale_mat * t_mat

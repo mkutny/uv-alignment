@@ -10,10 +10,13 @@ rotation = (pi/2, 0, 0)
 scale = (0.01, 0.01, 0.01)
 fbx_path = "d:\desktop\Matching-Photo-n-3D-4UE\sc01_sh0030_BoyFotoPlane_transfUV.fbx"
 shapekey_eyes_path = "d:\desktop\Reconstruction-kids-for-clients\BeautifulBoy\BeautifulBoy-Eyes.obj"
-AR_plane = 1.335  # aspect ratio of Boy's FotoPlane
+AR_plane = 1.44  # aspect ratio of Boy's FotoPlane
 
 # start match_foto_with_3D function to transform UV of Boy's FotoPlane based on coordinates
 # of eyes on Photo:
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
-match_foto_with_3D (958, 691, 625, 693, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane)
+# match_foto_with_3D (241, 374, 236, 666, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane) # for real aspect ratio 90 deg rotatio
+match_foto_with_3D (873, 626, 540, 626, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane) # for landscape aspect ratio (1.44:1)
+# match_foto_with_3D (733, 626, 400, 626, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane) # for real aspect ratio
+# match_foto_with_3D (958, 691, 625, 693, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane) # for square photo
