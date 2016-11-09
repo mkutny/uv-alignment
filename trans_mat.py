@@ -51,53 +51,51 @@ def get_rescale(photo_y_scale):
 #########################################################
 #########################################################
 def test_144_vs_069():
-  plane_y_to_x = 1.44 # not used
+  plane_y_scale = 1.44 # not used
 
   photo_x_size = 2127
   photo_y_size = 1477
   photo_y_scale = photo_y_size/photo_x_size # 0.6944
 
-  r_plane = [0.3767, 0.5339]
-  l_plane = [0.6617, 0.5332]
+  r_plane = [0.3767, 0.5339*plane_y_scale]
+  l_plane = [0.6617, 0.5332*plane_y_scale]
 
   r_foto = [540/photo_x_size, 851/photo_y_size*photo_y_scale]
   l_foto = [873/photo_x_size, 851/photo_y_size*photo_y_scale]
 
-  trans_mat, scale, rotation, translation = get_transform(l_foto, r_foto, l_plane, r_plane)
+  trans_mat, scale, rotation, translation = get_transform(l_plane, r_plane, l_foto, r_foto)
   #print("scale:\n", scale)
   #print("rotation:\n", rotation)
   #print("translation:\n", translation)
   #print("transformation:\n", trans_mat)
-  scale_back_mat = get_rescale(photo_y_scale)
 
   uv_vec = np.matrix([[0, 1, 1, 0], # (1,1)
                       [0, 0, 1.44, 1.44],
                       [1, 1, 1, 1]])
+  scale_back_mat = get_rescale(photo_y_scale)
 
-  uv_mat_t = trans_mat * uv_vec
-  uv_mat_rescaled_back = scale_back_mat * uv_mat_t
-  print("original transform 1.44 vs 0.69:\n", uv_mat_t.T)
-  print("scaled back transform 1.44 vs 0.69:\n", uv_mat_rescaled_back.T)
+  uv_mat_t = scale_back_mat * trans_mat * uv_vec
+  #print("original transform 1.44 vs 0.69:\n", uv_mat_t.T)
 
   gt_uv = [[0.0477, 0.0001, 1], # (0,0)
            [0.5970, 0.0028, 1], # (1,0)
            [0.5956, 1.0838, 1], # (1,1)
            [0.0463, 1.0811, 1]] # (0,1)
 
-  #assert np.allclose(uv_mat_t.T, np.matrix(gt_uv), 1e-03, 1e-03)
+  assert np.allclose(uv_mat_t.T, np.matrix(gt_uv), 1e-01, 1e-01)
 
 
 
 ###################
 def test_144_vs_144():
 
-  plane_y_to_x = 1.44 # not used
+  plane_y_scale = 1.44 # not used
+  photo_y_scale = 1.44
+  r_plane = [0.3767, 0.5339*plane_y_scale]
+  l_plane = [0.6617, 0.5332*plane_y_scale]
 
-  r_plane = [0.3767, 0.5339]
-  l_plane = [0.6617, 0.5332]
-
-  r_foto = [0.3899, 0.5762]
-  l_foto = [0.7144, 0.5762]
+  r_foto = [0.3899, 0.5762*photo_y_scale]
+  l_foto = [0.7144, 0.5762*photo_y_scale]
 
   trans_mat, scale, rotation, translation = get_transform(l_plane, r_plane, l_foto, r_foto)
   #print("scale:\n", scale)
@@ -109,20 +107,17 @@ def test_144_vs_144():
                       [0, 1, 1, 0],
                       [0, 0, 1.44, 1.44],
                       [1, 1, 1, 1]])
-  scale_back_mat = np.matrix([[1, 0,      0],
-                              [0, 0.6944444444, 0],
-                              [0, 0,      1]])
-  uv_mat_t = trans_mat * uv_mat
-  uv_mat_rescaled_back = scale_back_mat * uv_mat_t
+  scale_back_mat = get_rescale(photo_y_scale)
+  
+  uv_mat_t = scale_back_mat * trans_mat * uv_mat
   #print("1.44 vs 1.44:\n", uv_mat_t.T)
-  #print("uv rescaled back:\n", uv_mat_rescaled_back.T)
 
   gt_uv = [[-0.038, -0.033, 1], # (0,0)
            [ 1.101, -0.03,  1], # (1,0)
            [ 1.098,  1.109, 1], # (1,1)
            [-0.040,  1.106, 1]] # (0,1)
 
-  #assert np.allclose(uv_mat_t.T, np.matrix(gt_uv), 1e-03, 1e-03)
+  assert np.allclose(uv_mat_t.T, np.matrix(gt_uv), 1e-02, 1e-02)
 
 
 
@@ -156,19 +151,18 @@ def test_144_vs_144_45deg():
                       [0, 1, 1, 0],
                       [0, 0, 1.44, 1.44],
                       [1, 1, 1, 1]])
-  scale_back_mat = np.matrix([[1, 0,      0],
-                              [0, 0.6944444444, 0],
-                              [0, 0,      1]])
-  uv_mat_t = trans_mat * uv_mat
-  uv_mat_rescaled_back = scale_back_mat * uv_mat_t
+
+  scale_back_mat = get_rescale(photo_y_scale)
+  uv_mat_t = scale_back_mat * trans_mat * uv_mat
+
   #print("1.44 vs 1.44:\n", uv_mat_t.T)
-  #print("uv rescaled back:\n", uv_mat_rescaled_back.T)
+
   gt_uv = [[ 0.781, -0.217, 1], # (0,0)
            [ 1.777,  0.423, 1], # (1,0)
            [ 0.443,  1.414, 1], # (1,1)
            [-0.552,  0.774, 1]] # (0,1)
 
-  #assert np.allclose(uv_mat_t.T, np.matrix(gt_uv), 1e-03, 1e-03)
+  assert np.allclose(uv_mat_t.T, np.matrix(gt_uv), 1e-01, 1e-01)
 
 
 
