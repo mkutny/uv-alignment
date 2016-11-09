@@ -314,12 +314,7 @@ def get_affine_matrix(eyeL_plane, eyeR_plane, eyeL_photo, eyeR_photo, photo_ar, 
                      [t_vec[1],  scale_y*t_vec[0], t_vec[3]],
                      [0,         0,                1]))
 
-    
-    scale_mat = Matrix(([1, 0,       0],
-                        [0, 1, 0],
-                        [0, 0,       1]))
-
-    return scale_mat * t_mat
+    return t_mat
 
 
 

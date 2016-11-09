@@ -17,6 +17,9 @@ AR_plane = 1.44  # aspect ratio of Boy's FotoPlane
 # of eyes on Photo:
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
-match_foto_with_3D (873, 626, 540, 626, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane) # for landscape aspect ratio (1.44:1)
-# match_foto_with_3D (733, 626, 400, 626, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane) # for real aspect ratio
-# match_foto_with_3D (958, 691, 625, 693, fbx_path, shapekey_eyes_path, location, rotation, scale, AR_plane) # for square photo
+
+# match_foto_with_3D (873, 626, 540, 626, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane) # for landscape aspect ratio (1.44:1)
+# match_foto_with_3D (241, 374, 235, 665, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane) # for AR=1.44, 90 deg rotatio
+match_foto_with_3D (559, 294, 345, 490, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane) # for AR=1.44, 45 deg rotatio
+# match_foto_with_3D (733, 626, 400, 626, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane) # for real aspect ratio
+# match_foto_with_3D (958, 691, 625, 693, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane) # for square photo
