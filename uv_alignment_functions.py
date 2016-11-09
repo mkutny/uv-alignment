@@ -101,10 +101,10 @@ def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, location, 
     print ("Right Eye Foto normalized coordinates =", eyeR_photo_uv)
 
     # Calculating matrix to transform landmarks on foto to match landmarks on plane
-    t_mat = get_affine_matrix (eyeL_plane_uv, eyeR_plane_uv, eyeL_photo_uv, eyeR_photo_uv, photo_AR, plane_AR)
+    t_mat = get_affine_matrix (eyeL_plane_uv, eyeR_plane_uv, eyeL_photo_uv, eyeR_photo_uv, plane_AR, photo_AR)
 
     # Transforming UV of FotoPlane with help of transformation matrix
-    transform_UV (t_mat, photo_plane)
+    transform_UV (t_mat, photo_plane, plane_AR, photo_AR)
 
     # Exportin FotoPlane with animation to FBX
     export_object_to_FBX (fbx_path, photo_plane)
@@ -257,8 +257,8 @@ def convert_to_uv (point, width, height, origin, y_dir):
 
 
 #######################################################################################
-### FIND AFFINE TRANSFORMATION (ROTATION, SCALE, TRANSLATION)
-def get_affine_matrix(eyeL_plane, eyeR_plane, eyeL_photo, eyeR_photo, photo_ar, plane_ar):
+### FIND AFFINE TRANSFORMATION (source, target)
+def get_affine_matrix(eyeL_plane, eyeR_plane, eyeL_photo, eyeR_photo, plane_AR, photo_AR):
     
     # We want to find such an affine transformation 'T' that brings photo and plane points
     # in correspondence: photo_points = T * plane_points
@@ -287,40 +287,34 @@ def get_affine_matrix(eyeL_plane, eyeR_plane, eyeL_photo, eyeR_photo, photo_ar, 
     # | tx       |   | plane_x2  -plane_y2  1  0 |     | photo_x2 |
     # | ty       |   | plane_y2   plane_x2  0  1 |     | photo_y2 |
 
+    
     # Populate matrix with plane's X's and Y's
-    plane_mat = Matrix(([eyeR_plane[0], -eyeR_plane[1], 1, 0],
-                        [eyeR_plane[1],  eyeR_plane[0], 0, 1],
-                        [eyeL_plane[0], -eyeL_plane[1], 1, 0],
-                        [eyeL_plane[1],  eyeL_plane[0], 0, 1]))
+    plane_mat = Matrix(([eyeR_plane[0], -eyeR_plane[1]*plane_AR, 1, 0],
+                        [eyeR_plane[1]*plane_AR,  eyeR_plane[0], 0, 1],
+                        [eyeL_plane[0], -eyeL_plane[1]*plane_AR, 1, 0],
+                        [eyeL_plane[1]*plane_AR,  eyeL_plane[0], 0, 1]))
 
     # Set photo's X's and Y's
     photo_vec = Vector ((eyeR_photo[0],
-                         eyeR_photo[1],
+                         eyeR_photo[1]*photo_AR,
                          eyeL_photo[0],
-                         eyeL_photo[1]))
+                         eyeL_photo[1]*photo_AR))
 
     # compute vertical vector ( s*cos(r), s*sin(r), tx, ty )'
     t_vec = plane_mat.inverted() * photo_vec
 
-    scale_y = 1 # plane_ar/photo_ar # plane_ar
-    print ("scale_y", scale_y)
     # Fill in affinity transformation matrix with now known 's*cos(r)', 's*sin(r)', 'tx', 'ty'
-    t_mat =  Matrix(([t_vec[0], -scale_y*t_vec[1], t_vec[2]],
-                     [t_vec[1],  scale_y*t_vec[0], t_vec[3]],
-                     [0,         0,                1]))
+    t_mat =  Matrix(([t_vec[0], -t_vec[1], t_vec[2]],
+                     [t_vec[1],  t_vec[0], t_vec[3]],
+                     [0,         0,               1]))
 
-    
-    scale_mat = Matrix(([1, 0,       0],
-                        [0, 1, 0],
-                        [0, 0,       1]))
-
-    return scale_mat * t_mat
+    return t_mat
 
 
 
 #######################################################################################
 ### APPLY AFFINE TRANSFORMATION TO UV MAP
-def transform_UV (affineMatrix, obj):
+def transform_UV (affineMatrix, obj, plane_AR, photo_AR):
     scene = bpy.context.scene
     # Now we have affine transformation 'T' that for every point on plane locates matching
     # point on photo:
@@ -334,10 +328,10 @@ def transform_UV (affineMatrix, obj):
         uv_coord = uv_map.data[v.index].uv # exract UV-coordinate from UV map
 
         # transform UV coordinate
-        uv_tr = affineMatrix * Vector((uv_coord[0], uv_coord[1], 1))
+        uv_tr = affineMatrix * Vector((uv_coord[0], uv_coord[1]*plane_AR, 1))
 
         uv_coord[0] = uv_tr[0]
-        uv_coord[1] = uv_tr[1]
+        uv_coord[1] = uv_tr[1]/photo_AR
 
 
 def export_object_to_FBX (fbx_path, obj):
