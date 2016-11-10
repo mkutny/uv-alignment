@@ -60,10 +60,10 @@ def get_scale_mat(scale_x, scale_y):
                    [0.3899, 0.5762*1.44], # photo right x,y
                    [0.7144, 0.5762*1.44], # photo left x,y
                    # (expected result (ground truth)
-                   [[-0.038, -0.033, 1], # (0,0)
-                    [ 1.101, -0.03,  1], # (1,0)
-                    [ 1.098,  1.109, 1], # (1,1)
-                    [-0.040,  1.106, 1]] # (0,1)
+                   [[-0.03590792, -0.03274251, 1], # (0,0)
+                    [ 1.10267433, -0.02994599, 1], # (1,0)
+                    [ 1.09687547,  1.10863626, 1], # (1,1)
+                    [-0.04170678,  1.10583974, 1]] # (0,1)
                   ),
 
                   (# plane y/x: 1.44, photo y/x: 0.6944, rotation: 0
@@ -72,10 +72,10 @@ def get_scale_mat(scale_x, scale_y):
                    [540, 851], # photo right x,y
                    [873, 851], # photo left x,y
                    # (expected result (ground truth)
-                   [[0.0477, 0.0001, 1], # (0,0)
-                    [0.5970, 0.0028, 1], # (1,0)
-                    [0.5956, 1.0838, 1], # (1,1)
-                    [0.0463, 1.0811, 1]] # (0,1)
+                   [[0.04844307, -0.03307127, 1], # (0,0)
+                    [0.59776438, -0.03027339, 1], # (1,0)
+                    [0.59496666,  1.10886356, 1], # (1,1)
+                    [0.04564534,  1.10606568, 1]] # (0,1)
                   ),
 
                   (# plane y/x: 1.44, photo y/x: 1.44, rotation: 45deg CCW
@@ -84,10 +84,10 @@ def get_scale_mat(scale_x, scale_y):
                    [345, 1100-490], # photo right x,y
                    [559, 1100-294], # photo left x,y
                    # (expected result (ground truth)
-                   [[ 0.781, -0.217, 1], # (0,0)
-                    [ 1.777,  0.423, 1], # (1,0)
-                    [ 0.443,  1.414, 1], # (1,1)
-                    [-0.552,  0.774, 1]] # (0,1)),
+                   [[ 0.77726320, -0.20312630, 1], # (0,0)
+                    [ 1.75689079,  0.41882541, 1], # (1,0)
+                    [ 0.45567664,  1.38976873, 1], # (1,1)
+                    [-0.52395095,  0.76781702, 1]] # (0,1)),
                   )
                  ], # end of params
                  ids=["1.44 vs 1.44 rotation 0", "1.44 vs 0.69, rotation 0", "144_vs_144_45deg"]
@@ -133,10 +133,7 @@ def test_alignment(prepare_fixture):
   scale_back_mat = get_scale_mat(1/photo_x_size, 1/photo_y_size)
 
   # 2. Apply
-  tmp_1 = uv_scale_mat * uv_map
-  tmp_2 = trans_mat * tmp_1
-  tmp_3 = scale_back_mat * tmp_2
-  uv_map_transf = tmp_3 # scale_back_mat * trans_mat * uv_scale_mat * uv_map
+  uv_map_transf = scale_back_mat * trans_mat * uv_scale_mat * uv_map
 
-  #print("Calculated UV map:\n", uv_transf_map.T)
-  assert np.allclose(uv_map_transf.T, np.matrix(gt_uv_map), 1e-01, 5e-02)
+  #print("Calculated UV map:\n", uv_map_transf.T)
+  assert np.allclose(uv_map_transf.T, np.matrix(gt_uv_map), 1e-01, 1e-03)
