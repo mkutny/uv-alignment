@@ -47,85 +47,19 @@ def get_rescale(photo_y_scale):
 
 
 
-
-###################
-def test_144_vs_144():
-
-  plane_y_scale = 1.44 # not used
-  photo_y_scale = 1.44
-  r_plane = [0.3767, 0.5339*plane_y_scale]
-  l_plane = [0.6617, 0.5332*plane_y_scale]
-
-  r_foto = [0.3899, 0.5762*photo_y_scale]
-  l_foto = [0.7144, 0.5762*photo_y_scale]
-
-  trans_mat, scale, rotation, translation = get_transform(l_plane, r_plane, l_foto, r_foto)
-  #print("scale:\n", scale)
-  #print("rotation:\n", rotation)
-  #print("translation:\n", translation)
-  #print("transformation:\n", trans_mat)
-
-  uv_mat = np.matrix([#00 10 11 01
-                      [0, 1, 1, 0],
-                      [0, 0, 1.44, 1.44],
-                      [1, 1, 1, 1]])
-  scale_back_mat = get_rescale(photo_y_scale)
-  
-  uv_mat_t = scale_back_mat * trans_mat * uv_mat
-  #print("1.44 vs 1.44:\n", uv_mat_t.T)
-
-  gt_uv = [[-0.038, -0.033, 1], # (0,0)
-           [ 1.101, -0.03,  1], # (1,0)
-           [ 1.098,  1.109, 1], # (1,1)
-           [-0.040,  1.106, 1]] # (0,1)
-
-  assert np.allclose(uv_mat_t.T, np.matrix(gt_uv), 1e-02, 1e-02)
-
-
-
-
-
-
-
-def test_144_vs_069():
-  plane_y_scale = 1.44 # not used
-
-  photo_x_size = 2127
-  photo_y_size = 1477
-  photo_y_scale = photo_y_size/photo_x_size # 0.6944
-
-  r_plane = [0.3767, 0.5339*plane_y_scale]
-  l_plane = [0.6617, 0.5332*plane_y_scale]
-
-  r_foto = [540/photo_x_size, 851/photo_y_size*photo_y_scale]
-  l_foto = [873/photo_x_size, 851/photo_y_size*photo_y_scale]
-
-  trans_mat, scale, rotation, translation = get_transform(l_plane, r_plane, l_foto, r_foto)
-  #print("scale:\n", scale)
-  #print("rotation:\n", rotation)
-  #print("translation:\n", translation)
-  #print("transformation:\n", trans_mat)
-
-  uv_vec = np.matrix([[0, 1, 1, 0], # (1,1)
-                      [0, 0, 1.44, 1.44],
-                      [1, 1, 1, 1]])
-  scale_back_mat = get_rescale(photo_y_scale)
-
-  uv_mat_t = scale_back_mat * trans_mat * uv_vec
-  #print("original transform 1.44 vs 0.69:\n", uv_mat_t.T)
-
-  gt_uv = [[0.0477, 0.0001, 1], # (0,0)
-           [0.5970, 0.0028, 1], # (1,0)
-           [0.5956, 1.0838, 1], # (1,1)
-           [0.0463, 1.0811, 1]] # (0,1)
-
-  assert np.allclose(uv_mat_t.T, np.matrix(gt_uv), 1e-01, 1e-01)
-
-
-
-
-
 @pytest.fixture(scope="function", params=[
+(# plane y/x: 1.44, photo y/x: 1.44, rotation: 0
+ 1, # photo_x_size
+ 1.44, # photo_y_size
+ [0.3899, 0.5762*1.44], # photo right x,y
+ [0.7144, 0.5762*1.44], # photo left x,y
+ # (expected result (ground truth)
+ [[-0.038, -0.033, 1], # (0,0)
+  [ 1.101, -0.03,  1], # (1,0)
+  [ 1.098,  1.109, 1], # (1,1)
+  [-0.040,  1.106, 1]] # (0,1)
+),
+
 (# plane y/x: 1.44, photo y/x: 0.6944, rotation: 0
  2127, # photo_x_size
  1477, # photo_y_size
@@ -141,7 +75,7 @@ def test_144_vs_069():
 (# plane y/x: 1.44, photo y/x: 1.44, rotation: 45deg CCW
  764, # photo_x_size
  1110, # photo_y_size
- [345, 764-490], # photo right x,y
+ [345, 1100-490], # photo right x,y
  [559, 1100-294], # photo left x,y
  # (expected result (ground truth)
  [[ 0.781, -0.217, 1], # (0,0)
@@ -150,7 +84,7 @@ def test_144_vs_069():
   [-0.552,  0.774, 1]] # (0,1)),
 )
 ],
-ids=["1.44 vs 0.69, rotation 0", "144_vs_144_45deg"]
+ids=["1.44 vs 1.44 rotation 0", "1.44 vs 0.69, rotation 0", "144_vs_144_45deg"]
 )
 def prepare_fixture(request):
   plane_y_scale = 1.44
@@ -165,8 +99,8 @@ def test_alignment(prepare_fixture):
 
   photo_y_scale = photo_y_size/photo_x_size
 
-  r_foto = [r_photo_abs[0]/photo_x_size, (photo_y_size - 490)/photo_x_size]
-  l_foto = [l_photo_abs[0]/photo_x_size, (photo_y_size - 294)/photo_x_size]
+  r_foto = [r_photo_abs[0]/photo_x_size, r_photo_abs[1]/photo_x_size]
+  l_foto = [l_photo_abs[0]/photo_x_size, l_photo_abs[1]/photo_x_size]
   
   trans_mat, scale, rotation, translation = get_transform(l_plane, r_plane, l_foto, r_foto)
   #print("scale:\n", scale)
