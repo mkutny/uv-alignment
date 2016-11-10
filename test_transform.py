@@ -93,20 +93,21 @@ def get_scale_mat(scale_x, scale_y):
                  ids=["1.44 vs 1.44 rotation 0", "1.44 vs 0.69, rotation 0", "144_vs_144_45deg"]
                 )
 def prepare_fixture(request):
-  plane_y_scale = 1.44
+  plane_x_size = 4.71391*2
+  plane_y_size = plane_x_size * 1.44
   # normalized (0-1) coords
-  r_plane = [0.3767, 0.5339*plane_y_scale]
-  l_plane = [0.6617, 0.5332*plane_y_scale]
+  r_plane = [0.3767*plane_x_size, 0.5339*plane_y_size]
+  l_plane = [0.6617*plane_x_size, 0.5332*plane_y_size]
   # retun combined tuple
-  return (plane_y_scale, r_plane, l_plane) + request.param
+  return (plane_x_size, plane_y_size, r_plane, l_plane) + request.param
 
 
 def test_alignment(prepare_fixture):
   # setting initial parameters from the fixture
-  (plane_y_scale, r_plane, l_plane, photo_x_size, photo_y_size, r_photo_abs, l_photo_abs, gt_uv_map) = prepare_fixture
+  (plane_x_size, plane_y_size, r_plane, l_plane, photo_x_size, photo_y_size, r_photo, l_photo, gt_uv_map) = prepare_fixture
   
   # Calculate transformation matrix, which transforms plane points to match photo points
-  trans_mat, scale, rotation, translation = get_transform(l_plane, r_plane, l_photo_abs, r_photo_abs)
+  trans_mat, scale, rotation, translation = get_transform(l_plane, r_plane, l_photo, r_photo)
   #print("scale:\n", scale)
   #print("rotation:\n", rotation)
   #print("translation:\n", translation)
@@ -126,13 +127,16 @@ def test_alignment(prepare_fixture):
   # 3. Scale UV-map in photo coordinate frame back to (0,0):(1,1)
   
   # 1. Scale UV-map to match plane's coord frame (1.44:1)
-  uv_scale_mat = get_scale_mat(1, plane_y_scale)
+  uv_scale_mat = get_scale_mat(plane_x_size, plane_y_size)
 
   # 3. calculate scale-back matrix for photo frame
   scale_back_mat = get_scale_mat(1/photo_x_size, 1/photo_y_size)
 
   # 2. Apply
-  uv_map_transf = scale_back_mat * trans_mat * uv_scale_mat * uv_map
+  tmp_1 = uv_scale_mat * uv_map
+  tmp_2 = trans_mat * tmp_1
+  tmp_3 = scale_back_mat * tmp_2
+  uv_map_transf = tmp_3 # scale_back_mat * trans_mat * uv_scale_mat * uv_map
 
   #print("Calculated UV map:\n", uv_transf_map.T)
   assert np.allclose(uv_map_transf.T, np.matrix(gt_uv_map), 1e-01, 5e-02)
