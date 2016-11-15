@@ -31,7 +31,8 @@ from bpy_extras.view3d_utils import location_3d_to_region_2d
 # transform UV of Girl's FotoPlane based on morphed eyes and coordinates of eyes on photo:
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
-def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, plane_AR):
+#def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, plane_AR):
+def match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, plane_AR):
 
     scene = bpy.context.scene
 
@@ -42,7 +43,7 @@ def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, shapekey_h
     skinned_head_obj = bpy.data.objects["Head"]
 
     # finding plane with photo of character
-    photo_plane = scene.objects.get('FotoPlane')
+    photo_plane = scene.objects.get('{}FotoPlane'.format(gender))
 
     # finding camera looking at character 
     cam = scene.objects.get('cam')
@@ -98,11 +99,11 @@ def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, shapekey_h
 
     # normalizing coordinates of left eye on the photo. 
     # In other words, I'm looking UV coordinates of eyes on foto
-    eyeL_photo_uv = convert_to_uv (Vector((lx, ly)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
+    eyeL_photo_uv = convert_to_uv (eL, photo_width, photo_height, 'TOPLEFT', 'DOWN')
     print ("Left Eye Foto normalized coordinates =", eyeL_photo_uv)
 
     # normalizing coordinates of right eye on the photo
-    eyeR_photo_uv = convert_to_uv (Vector((rx, ry)), photo_width, photo_height, 'TOPLEFT', 'DOWN')
+    eyeR_photo_uv = convert_to_uv (eR, photo_width, photo_height, 'TOPLEFT', 'DOWN')
     print ("Right Eye Foto normalized coordinates =", eyeR_photo_uv)
 
     # Calculating matrix to transform landmarks on foto to match landmarks on plane
@@ -112,7 +113,7 @@ def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, shapekey_h
     transform_UV (t_mat, photo_plane, plane_AR, photo_AR)
 
     # Exportin FotoPlane with animation to FBX
-    export_object_to_FBX (fbx_path, photo_plane)
+    export_object_to_FBX (gender, photo_plane)
 
 
 def apply_shapekey (shapekey_path, ob):
@@ -336,13 +337,14 @@ def transform_UV (affineMatrix, obj, plane_AR, photo_AR):
         uv_tr = affineMatrix * Vector((uv_coord[0], uv_coord[1]*plane_AR, 1))
 
         uv_coord[0] = uv_tr[0]
-        uv_coord[1] = uv_tr[1]/photo_AR
+        uv_coord[1] = uv_tr[1] / photo_AR
 
 
-def export_object_to_FBX (fbx_path, obj):
+def export_object_to_FBX (gender, obj):
     bpy.ops.object.select_all(action='DESELECT')
     obj.select = True
-    bpy.ops.export_scene.fbx (filepath=fbx_path, check_existing=False, axis_forward='-Z', axis_up='Y',
+    fbx_path_gender = "d:\sc01_sh0030_{}FotoPlane_transfUV.fbx".format(gender)
+    bpy.ops.export_scene.fbx (filepath=fbx_path_gender, check_existing=False, axis_forward='-Z', axis_up='Y',
                     filter_glob="*.fbx", version='BIN7400', ui_tab='MAIN', use_selection=True,
                     global_scale=1.0, apply_unit_scale=True, bake_space_transform=False,
                     object_types={'MESH'}, use_custom_props=False, path_mode='AUTO', batch_mode='OFF',
