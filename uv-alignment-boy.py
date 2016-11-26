@@ -15,13 +15,13 @@ AR_plane = 1.44  # aspect ratio of Boy's FotoPlane
 
 gender = "Boy"
 
-avatar = 81 # ID of avatar
+avatar = 103 # ID of avatar
 
 data = RQ.urlopen("http://face3d.unteleported.com/avatars/{}/photo.bpt.xml".format(avatar))
 tree = ET.parse(data)
 root = tree.getroot()
-eR = Vector((int(root[0][2][0].text), int(root[0][2][1].text))) # right eye coordinates
-eL = Vector((int(root[0][3][0].text), int(root[0][3][1].text))) # left eye coordinates
+eR = Vector((int(root[0][9][0].text), int(root[0][9][1].text))) # right eye coordinates
+eL = Vector((int(root[0][8][0].text), int(root[0][8][1].text))) # left eye coordinates
 
 
 RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/Eyes.obj".format(avatar), "d:\Boy-eyes-shapekey.obj")
@@ -33,6 +33,7 @@ RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/photo.jpg".f
 match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane)
 
 RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/Head1.jpg".format(avatar), "d:\Boy-head-texture.jpg")
+RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/boy.fbx".format(avatar), "d:\Boy.fbx")
 
 # start match_foto_with_3D function to transform UV of Boy's FotoPlane based on coordinates
 # of eyes on Photo:

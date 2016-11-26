@@ -92,10 +92,14 @@ def match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, 
     # reload Foto file
     bpy.ops.image.reload ()
 
+    images = bpy.data.images  
+    for img in images:
+        img.reload()
+
     # finding width and height of Foto of character
     photo_width = bpy.data.images['Foto'].size[0]   # width of the photo in pixels
     photo_height = bpy.data.images['Foto'].size[1]  # height of the photo in pixels
-    photo_AR = photo_height/photo_width             # aspect ration of photo
+    photo_AR = (photo_height/photo_width)*1.05             # aspect ration of photo
 
     # normalizing coordinates of left eye on the photo. 
     # In other words, I'm looking UV coordinates of eyes on foto
