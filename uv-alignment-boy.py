@@ -23,6 +23,9 @@ root = tree.getroot()
 eR = Vector((int(root[0][9][0].text), int(root[0][9][1].text))) # right eye coordinates
 eL = Vector((int(root[0][8][0].text), int(root[0][8][1].text))) # left eye coordinates
 
+mR = Vector((int(root[0][7][0].text), int(root[0][7][1].text))) # right corner of mouth coordinates
+mL = Vector((int(root[0][6][0].text), int(root[0][6][1].text))) # left corner of mouth coordinates
+
 
 RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/Eyes.obj".format(avatar), "d:\Boy-eyes-shapekey.obj")
 shapekey_eyes_path = "d:\Boy-eyes-shapekey.obj"
@@ -30,7 +33,7 @@ RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/Head.obj".fo
 shapekey_head_path = "d:\Boy-head-shapekey.obj"
 
 RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/photo.jpg".format(avatar), "d:\Boy-photo-limbo.jpg")
-match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane)
+match_foto_with_3D (eR, eL, mR, mL, gender, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane)
 
 RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/Head1.jpg".format(avatar), "d:\Boy-head-texture.jpg")
 RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/boy.fbx".format(avatar), "d:\Boy.fbx")

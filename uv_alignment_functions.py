@@ -15,7 +15,7 @@ from bpy_extras.view3d_utils import region_2d_to_vector_3d
 from bpy_extras.view3d_utils import location_3d_to_region_2d
 
 # Briefly, our approach is the following:
-# 1. Find projection of mesh's landmarks on photo-plane
+# 1. Find projection of mesh's landmarks on photo_plane
 #  1.1 Get landmarks' world coordinates of 3d mesh
 #  1.2 Find out corresponding screen coordinates
 #  1.3 Project rays from located screen points back to landmarks
@@ -32,7 +32,7 @@ from bpy_extras.view3d_utils import location_3d_to_region_2d
 # lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
 # where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
 #def match_foto_with_3D (lx, ly, rx, ry, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, plane_AR):
-def match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, plane_AR):
+def match_foto_with_3D (eR, eL, mR, mL, gender, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, plane_AR):
 
     scene = bpy.context.scene
 
@@ -48,35 +48,45 @@ def match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, 
     # finding camera looking at character 
     cam = scene.objects.get('cam')
 
-    # getting size of FotoPlane. 
+    # Setting size of FotoPlane. 
     # Because origin is in the center, I need sum length in positive and negative direction
     photo_plane_size = 4.71391 * 2 # width/height of the BoyFotoPlane in units (because width=height)
+
+    #########################################################################################################################
+    ### DEALING WITH 3D POINTS (POINTS ON photo_plane)
 
     # import and apply shape key to eyes
     apply_shapekey (shapekey_eyes_path, skinned_eyes_obj)
     # import and apply shape key to head
     apply_shapekey (shapekey_head_path, skinned_head_obj)
 
-    # applying skin to eyes
+    # applying skin to eyes/mouth
     eyes_obj = convert_skinned_mesh_to_mesh (skinned_eyes_obj)
+    head_obj = convert_skinned_mesh_to_mesh (skinned_head_obj)
 
-    # applying character specific transormation to align baked eyes with skinned eyes
+    # applying character specific transormation to align baked eyes/mouth with skinned eyes/mouth
     apply_transformations (eyes_obj, location, rotation, scale)
+    apply_transformations (head_obj, location, rotation, scale)
 
-    # Getting world coordinates of 3D eyes' mesh (our landmarks)
+    # Getting world coordinates of 3D eyes'/mouth's mesh (our landmarks)
     # vertex 192 - center of left eye
     eyeL_3D_world = eyes_obj.matrix_world * eyes_obj.data.vertices[192].co
     # vertex 385 - center of right eye
     eyeR_3D_world = eyes_obj.matrix_world * eyes_obj.data.vertices[385].co 
+    # vertex 1211 - middle of mouth
+    mouth_3D_world = head_obj.matrix_world * head_obj.data.vertices[1211].co
+    draw_cross (mouth_3D_world)
 
     # find coordinates on FotoPlane (local space) of 3D mesh landmarks
     eyeL_3D_plane = convert_point3D_to_point2D_w_same_screen_co (eyeL_3D_world, cam, photo_plane)
     eyeR_3D_plane = convert_point3D_to_point2D_w_same_screen_co (eyeR_3D_world, cam, photo_plane)
+    mouth_3D_plane = convert_point3D_to_point2D_w_same_screen_co (mouth_3D_world, cam, photo_plane)
 
     # Converting 3D coordinates to 2D point.
     # Because I need only local axis X and Z (Y = 0 for all vertices)
     eyeL_plane = Vector ((eyeL_3D_plane[0], eyeL_3D_plane[2]))
     eyeR_plane = Vector ((eyeR_3D_plane[0], eyeR_3D_plane[2]))
+    mouth_plane = Vector ((mouth_3D_plane[0], mouth_3D_plane[2]))
 
     # Convert plane landmark to UV-coordinates: (0,0) is bottom left, (1,1) is top right
     # Plane origin is located at center and y-axis points down
@@ -86,21 +96,21 @@ def match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, 
     eyeR_plane_uv = convert_to_uv (eyeR_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
     print ("Right Eye Plane normalized coordinates =", eyeR_plane_uv)
 
-    # Get photo landmark coordinates
-    # TODO I need to get coordinates of eyesfrom FaceGen or landmarker.io
+    mouth_plane_uv = convert_to_uv (mouth_plane, photo_plane_size, photo_plane_size, 'CENTER', 'DOWN')
+
+    #########################################################################################################################
+    ### DEALING WITH 2D POINTS (POINTS ON FOTO)
 
     # reload Foto file
-    bpy.ops.image.reload ()
-
-    images = bpy.data.images  
+    # bpy.ops.image.reload () # old methond (not worked)
+    images = bpy.data.images
     for img in images:
         img.reload()
 
     # finding width and height of Foto of character
     photo_width = bpy.data.images['Foto'].size[0]   # width of the photo in pixels
     photo_height = bpy.data.images['Foto'].size[1]  # height of the photo in pixels
-    photo_AR = (photo_height/photo_width)*1.05             # aspect ration of photo
-
+    
     # normalizing coordinates of left eye on the photo. 
     # In other words, I'm looking UV coordinates of eyes on foto
     eyeL_photo_uv = convert_to_uv (eL, photo_width, photo_height, 'TOPLEFT', 'DOWN')
@@ -109,6 +119,38 @@ def match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, 
     # normalizing coordinates of right eye on the photo
     eyeR_photo_uv = convert_to_uv (eR, photo_width, photo_height, 'TOPLEFT', 'DOWN')
     print ("Right Eye Foto normalized coordinates =", eyeR_photo_uv)
+
+    # getting coordinates of the point in the middle of mouth
+    mouth_photo = (mL + mR)/2
+
+    # normalizing coordinates of right eye on the photo
+    mouth_photo_uv = convert_to_uv (mouth_photo, photo_width, photo_height, 'TOPLEFT', 'DOWN')
+
+    #########################################################################################################################
+    ### SCALE ONLY VERTICAL RELATED STUFF (how to compensate difference between position of real mouth and mouth on foto)
+    # aspect ratio of photo (not compensated)
+    AR = photo_height/photo_width
+
+    dist_between_3D_eyes = (eyeL_plane_uv - eyeR_plane_uv).length
+    print ("dist_between_3D_eyes =", dist_between_3D_eyes)
+    #dist_between_photo_eyes = (eyeL_photo_uv - eyeR_photo_uv).length
+    dist_between_photo_eyes = (Vector((eyeL_photo_uv[0], eyeL_photo_uv[1]*AR)) - Vector((eyeR_photo_uv[0], eyeR_photo_uv[1]*AR))).length
+    print ("dist_between_photo_eyes =", dist_between_photo_eyes)
+
+    #eyes_midpoint_photo = (eyeL_photo_uv + eyeR_photo_uv)/2
+    eyes_midpoint_photo = (Vector((eyeL_photo_uv[0], eyeL_photo_uv[1]*AR)) + Vector((eyeR_photo_uv[0], eyeR_photo_uv[1]*AR)))/2
+    #dist_eyes_to_mouth_photo = (mouth_photo_uv - eyes_midpoint_photo).length
+    dist_eyes_to_mouth_photo = (Vector((mouth_photo_uv[0], mouth_photo_uv[1]*AR)) - eyes_midpoint_photo).length
+    
+    
+    eyes_midpoint_3D = (eyeL_plane_uv + eyeR_plane_uv)/2
+    dist_eyes_to_mouth_3D = (mouth_plane_uv - eyes_midpoint_3D).length
+    
+    scale_factor = dist_eyes_to_mouth_photo*dist_eyes_to_mouth_3D/dist_between_photo_eyes*dist_between_3D_eyes
+    print ("scale_factor =", scale_factor)
+
+    # aspect ration of photo with scale_factor compensation (something around 5%)
+    photo_AR = (photo_height/photo_width)*(scale_factor + 1) 
 
     # Calculating matrix to transform landmarks on foto to match landmarks on plane
     t_mat = get_affine_matrix (eyeL_plane_uv, eyeR_plane_uv, eyeL_photo_uv, eyeR_photo_uv, plane_AR, photo_AR)
