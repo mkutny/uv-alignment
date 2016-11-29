@@ -127,36 +127,30 @@ def match_foto_with_3D (eR, eL, mR, mL, gender, shapekey_eyes_path, shapekey_hea
     mouth_photo_uv = convert_to_uv (mouth_photo, photo_width, photo_height, 'TOPLEFT', 'DOWN')
 
     #########################################################################################################################
-    ### SCALE ONLY VERTICAL RELATED STUFF (how to compensate difference between position of real mouth and mouth on foto)
+    ### SCALE VERTICAL ONLY (to compensate difference between position of real mouth and mouth on foto)
+
     # aspect ratio of photo (not compensated)
-    AR = photo_height/photo_width
+    photo_AR = photo_height/photo_width
 
-    dist_between_3D_eyes = (eyeL_plane_uv - eyeR_plane_uv).length
-    print ("dist_between_3D_eyes =", dist_between_3D_eyes)
-    #dist_between_photo_eyes = (eyeL_photo_uv - eyeR_photo_uv).length
-    dist_between_photo_eyes = (Vector((eyeL_photo_uv[0], eyeL_photo_uv[1]*AR)) - Vector((eyeR_photo_uv[0], eyeR_photo_uv[1]*AR))).length
-    print ("dist_between_photo_eyes =", dist_between_photo_eyes)
-
-    #eyes_midpoint_photo = (eyeL_photo_uv + eyeR_photo_uv)/2
-    eyes_midpoint_photo = (Vector((eyeL_photo_uv[0], eyeL_photo_uv[1]*AR)) + Vector((eyeR_photo_uv[0], eyeR_photo_uv[1]*AR)))/2
-    #dist_eyes_to_mouth_photo = (mouth_photo_uv - eyes_midpoint_photo).length
-    dist_eyes_to_mouth_photo = (Vector((mouth_photo_uv[0], mouth_photo_uv[1]*AR)) - eyes_midpoint_photo).length
+    dist_between_3D_eyes = (Vector((eyeL_plane_uv[0], eyeL_plane_uv[1]*plane_AR)) - Vector((eyeR_plane_uv[0], eyeR_plane_uv[1]*plane_AR))).length
+    dist_between_photo_eyes = (Vector((eyeL_photo_uv[0], eyeL_photo_uv[1]*photo_AR)) - Vector((eyeR_photo_uv[0], eyeR_photo_uv[1]*photo_AR))).length
     
+    eyes_midpoint_photo = (Vector((eyeL_photo_uv[0], eyeL_photo_uv[1]*photo_AR)) + Vector((eyeR_photo_uv[0], eyeR_photo_uv[1]*photo_AR)))/2
+    dist_eyes_to_mouth_photo = (Vector((mouth_photo_uv[0], mouth_photo_uv[1]*photo_AR)) - eyes_midpoint_photo).length
+        
+    eyes_midpoint_3D = (Vector((eyeL_plane_uv[0], eyeL_plane_uv[1]*plane_AR)) + Vector((eyeR_plane_uv[0], eyeR_plane_uv[1]*plane_AR)))/2
+    dist_eyes_to_mouth_3D = (Vector((mouth_plane_uv[0], mouth_plane_uv[1]*plane_AR)) - eyes_midpoint_3D).length
     
-    eyes_midpoint_3D = (eyeL_plane_uv + eyeR_plane_uv)/2
-    dist_eyes_to_mouth_3D = (mouth_plane_uv - eyes_midpoint_3D).length
-    
-    scale_factor = dist_eyes_to_mouth_photo*dist_eyes_to_mouth_3D/dist_between_photo_eyes*dist_between_3D_eyes
-    print ("scale_factor =", scale_factor)
-
-    # aspect ration of photo with scale_factor compensation (something around 5%)
-    photo_AR = (photo_height/photo_width)*(scale_factor + 1) 
+    scale_Y = (dist_eyes_to_mouth_3D*dist_between_photo_eyes)/(dist_eyes_to_mouth_photo*dist_between_3D_eyes)
+    print ("scale_Y", scale_Y)
+    # aspect ration of photo with scale_Y compensation (something around 5%)
+    AR = (photo_height/photo_width)*scale_Y
 
     # Calculating matrix to transform landmarks on foto to match landmarks on plane
-    t_mat = get_affine_matrix (eyeL_plane_uv, eyeR_plane_uv, eyeL_photo_uv, eyeR_photo_uv, plane_AR, photo_AR)
+    t_mat = get_affine_matrix (eyeL_plane_uv, eyeR_plane_uv, eyeL_photo_uv, eyeR_photo_uv, plane_AR, AR)
 
     # Transforming UV of FotoPlane with help of transformation matrix
-    transform_UV (t_mat, photo_plane, plane_AR, photo_AR)
+    transform_UV (t_mat, photo_plane, plane_AR, AR)
 
     # Exportin FotoPlane with animation to FBX
     export_object_to_FBX (gender, photo_plane)
