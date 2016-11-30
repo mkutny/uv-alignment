@@ -1,42 +1,41 @@
+# Start match_foto_with_3D function to transform UV of Girl's FotoPlane based on coordinates
+# of eyes and mouth on Photo: eR, eL, mR, mL,
+# where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
+
+# Blender need this to find uv_alignment_functions.py and use match_foto_with_3D function inside
 import os, sys
-from math import radians, pi,
-from mathutils import Vector
 lib_path = os.path.abspath(os.path.join('d:\\desktop\\Matching-Photo-n-3D-4UE\\code\\uv-alignment\\'))
 sys.path.append(lib_path)
+
+from math import radians, pi
+from mathutils import Vector
 from uv_alignment_functions import match_foto_with_3D
+
+# for xml parsing
 import xml.etree.ElementTree as ET
-import urllib.request as RQ
 
-
+# these transformations moves baked girl to position of skinned girl
 location = (0.16856, 0.13704, 0.02343)
 rotation = (pi/2, 0, radians (-69.89))
 scale = (0.0085, 0.0085, 0.0085)
+
 AR_plane = 1.44 # aspect ratio of Girl's FotoPlane
 
 gender = "Girl"
 
-avatar = 76 # ID of avatar
-
-data = RQ.urlopen("http://face3d.unteleported.com/avatars/{}/photo.bpt.xml".format(avatar))
+data = "d:\Girl.xml"
 tree = ET.parse(data)
 root = tree.getroot()
-eR = Vector((int(root[0][2][0].text), int(root[0][2][1].text))) # right eye coordinates
-eL = Vector((int(root[0][3][0].text), int(root[0][3][1].text))) # left eye coordinates
+eR = Vector((int(root[0][9][0].text), int(root[0][9][1].text))) # right eye coordinates
+eL = Vector((int(root[0][8][0].text), int(root[0][8][1].text))) # left eye coordinates
+mR = Vector((int(root[0][7][0].text), int(root[0][7][1].text))) # right corner of mouth coordinates
+mL = Vector((int(root[0][6][0].text), int(root[0][6][1].text))) # left corner of mouth coordinates
 
-
-RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/Eyes.obj".format(avatar), "d:\Girl-eyes-shapekey.obj")
 shapekey_eyes_path = "d:\Girl-eyes-shapekey.obj"
-RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/Head.obj".format(avatar), "d:\Girl-head-shapekey.obj")
 shapekey_head_path = "d:\Girl-head-shapekey.obj"
 
-RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/photo.jpg".format(avatar), "d:\Girl-photo-limbo.jpg")
-match_foto_with_3D (eR, eL, gender, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane)
+# NOTE! Path to foto texture of GirlFotoPlane - "d:\Girl-photo-limbo.jpg".
+# If you need, you can change it inside blender file 01A_Limbo_sc01_sh0030_OnlyGirl.blend
 
-RQ.URLopener().retrieve ("http://face3d.unteleported.com/avatars/{}/Head1.jpg".format(avatar), "d:\Girl-head-texture.jpg")
+match_foto_with_3D (eR, eL, mR, mL, gender, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane)
 
-
-# start match_foto_with_3D function to transform UV of Girl's FotoPlane based on coordinates
-# of eyes on Photo:
-# lx, ly, rx, ry - left eye X, left eye Y, right eye X, right eye Y,
-# where X = 0, Y = 0 in the tob left corner of the photo. Y points downwards.
-# match_foto_with_3D (968, 677, 654, 673, fbx_path, shapekey_eyes_path, shapekey_head_path, location, rotation, scale, AR_plane) # for square photo
